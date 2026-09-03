@@ -1,0 +1,45 @@
+{
+  "name": "jmcomic-electron",
+  "version": "0.1.0",
+  "description": "基于 Electron + Vue 3 + TypeScript 的桌面漫画阅读客户端",
+  "private": true,
+  "main": "dist/electron/main.js",
+  "packageManager": "pnpm@11.21.0",
+  "scripts": {
+    "dev": "tsx scripts/dev.ts",
+    "dev:renderer": "vite",
+    "dev:backend": "cd backend && .venv/bin/python -m jmcomic_backend.main --host 127.0.0.1 --port 8000 --data-dir \"$HOME/Library/Application Support/jmcomic-electron\" --reload",
+    "build": "tsc -p electron/tsconfig.json && vite build",
+    "build:backend": "echo 'PyInstaller build not implemented in Phase 0'",
+    "dist": "pnpm run build && pnpm run build:backend && electron-builder",
+    "test": "pnpm run test:backend",
+    "test:backend": "cd backend && .venv/bin/pytest ../tests/backend -q",
+    "lint": "eslint electron renderer/src --ext .ts,.vue",
+    "postinstall": "cd backend && python3 -m venv .venv && .venv/bin/pip install -e ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.18",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/tsconfig": "^0.7.0",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^35.5.1",
+    "electron-builder": "^26.1.1",
+    "postcss": "^8.5.4",
+    "tailwindcss": "^4.1.17",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.1.13",
+    "vue-tsc": "^2.2.10"
+  },
+  "dependencies": {
+    "@vueuse/core": "^13.2.0",
+    "pinia": "^3.0.2",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

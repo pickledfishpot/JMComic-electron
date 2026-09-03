@@ -1,0 +1,30 @@
+appId: cc.jpacg.jmcomic-electron
+productName: JMComic
+copyright: Copyright © 2026
+# Electron builder configuration for packaging
+directories:
+  output: dist/installers
+  buildResources: resources
+files:
+  - dist/electron/**/*
+  - dist/renderer/**/*
+  - package.json
+extraResources:
+  - from: backend_dist
+    to: backend_dist
+    filter:
+      - '**/*'
+mac:
+  category: public.app-category.entertainment
+  target:
+    - dmg
+win:
+  target:
+    - nsis
+linux:
+  target:
+    - AppImage
+    - deb
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
