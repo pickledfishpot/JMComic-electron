@@ -3,6 +3,9 @@ import { ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { searchBooks, type BookItem, type SearchResponse } from "../api/books";
 import { useGoBack } from "../composables/useGoBack";
+import BookCard from "../components/BookCard.vue";
+import PillTabs from "../components/PillTabs.vue";
+import StateBlock from "../components/StateBlock.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -79,23 +82,26 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0f0f0f] text-[#f0f0f0]">
+  <div class="min-h-screen bg-canvas text-ink">
     <header
-      class="sticky top-0 z-10 flex items-center gap-3 border-b border-white/10 bg-[#0f0f0f]/90 px-4 py-3 backdrop-blur"
+      class="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-hairline bg-canvas/90 px-4 backdrop-blur"
     >
-      <button class="rounded-lg p-2 hover:bg-white/10" @click="goBack">
+      <button
+        class="rounded-md px-2 py-1.5 text-sm font-medium text-muted transition hover:bg-surface-card hover:text-ink"
+        @click="goBack"
+      >
         ← 返回
       </button>
-      <form class="flex flex-1 gap-2" @submit.prevent="submitSearch">
+      <form class="flex min-w-0 flex-1 gap-2" @submit.prevent="submitSearch">
         <input
           v-model="query"
           type="search"
           placeholder="搜索漫画..."
-          class="flex-1 rounded-lg bg-[#1a1a1a] px-4 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-[#feca57]"
+          class="input flex-1 text-sm"
         />
         <button
           type="submit"
-          class="rounded-lg bg-[#feca57] px-4 py-2 text-sm font-medium text-[#0f0f0f] hover:bg-[#ffdb7a]"
+          class="rounded-md bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink-active"
         >
           搜索
         </button>
@@ -103,85 +109,54 @@ watch(
     </header>
 
     <main class="p-6">
-      <div v-if="!query" class="py-20 text-center text-gray-500">
-        输入关键词开始搜索
-      </div>
-
-      <div v-else-if="loading" class="py-20 text-center text-gray-400">
-        加载中...
-      </div>
-      <div v-else-if="error" class="py-20 text-center text-red-400">
-        <p>{{ error }}</p>
-        <p class="mt-2 text-sm text-gray-500">
+      <StateBlock v-if="!query" type="empty" message="输入关键词开始搜索" />
+      <StateBlock v-else-if="loading" type="loading" />
+      <StateBlock
+        v-else-if="error"
+        type="error"
+        :message="error"
+        @retry="loadSearch"
+      >
+        <p class="mt-2 text-sm text-muted-soft">
           JM 服务器不太稳定，若重试三次仍失败，可能是对方服务器问题。
         </p>
-        <button
-          class="mt-4 rounded-lg bg-red-500/20 px-4 py-2 text-sm text-red-300 hover:bg-red-500/30"
-          @click="loadSearch"
-        >
-          重试
-        </button>
-      </div>
+      </StateBlock>
 
       <div v-else-if="result" class="space-y-6">
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-gray-400">共 {{ result.total }} 条结果</p>
-          <div class="flex gap-2">
-            <button
-              v-for="opt in sortOptions"
-              :key="opt.value"
-              class="rounded-full px-3 py-1 text-xs"
-              :class="
-                sort === opt.value
-                  ? 'bg-[#feca57] text-[#0f0f0f]'
-                  : 'bg-[#1a1a1a] text-gray-400 hover:bg-[#252525]'
-              "
-              @click="changeSort(opt.value)"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm text-muted">共 {{ result.total }} 条结果</p>
+          <PillTabs
+            :options="sortOptions"
+            :model-value="sort"
+            size="sm"
+            @update:model-value="changeSort"
+          />
         </div>
 
         <div
           class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
         >
-          <div
+          <BookCard
             v-for="book in result.books"
             :key="book.id"
-            class="group cursor-pointer overflow-hidden rounded-xl bg-[#1a1a1a] transition hover:scale-[1.02] hover:shadow-lg"
-            @click="openBook(book)"
-          >
-            <div class="aspect-[3/4] overflow-hidden bg-gray-800">
-              <img
-                :src="book.coverUrl"
-                :alt="book.title"
-                class="h-full w-full object-cover transition group-hover:opacity-90"
-                loading="lazy"
-              />
-            </div>
-            <div class="p-3">
-              <h3 class="line-clamp-2 text-sm font-medium leading-snug">
-                {{ book.title }}
-              </h3>
-              <p class="mt-1 truncate text-xs text-gray-500">
-                {{ book.authorList.join(", ") || "未知作者" }}
-              </p>
-            </div>
-          </div>
+            :cover="book.coverUrl"
+            :title="book.title"
+            :author="book.authorList.join(', ') || '未知作者'"
+            @open="openBook(book)"
+          />
         </div>
 
         <div class="flex justify-center gap-2 pt-4">
           <button
-            class="rounded-lg bg-[#1a1a1a] px-4 py-2 text-sm hover:bg-[#252525] disabled:opacity-50"
+            class="rounded-md border border-hairline bg-canvas px-4 py-2 text-sm font-medium transition hover:bg-surface-soft disabled:opacity-50"
             :disabled="page <= 1"
             @click="changePage(page - 1)"
           >
             上一页
           </button>
-          <span class="px-4 py-2 text-sm text-gray-400">第 {{ page }} 页</span>
+          <span class="px-4 py-2 text-sm text-muted">第 {{ page }} 页</span>
           <button
-            class="rounded-lg bg-[#1a1a1a] px-4 py-2 text-sm hover:bg-[#252525] disabled:opacity-50"
+            class="rounded-md border border-hairline bg-canvas px-4 py-2 text-sm font-medium transition hover:bg-surface-soft disabled:opacity-50"
             :disabled="result.books.length === 0"
             @click="changePage(page + 1)"
           >

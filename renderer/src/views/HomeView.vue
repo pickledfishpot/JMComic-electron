@@ -3,12 +3,23 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getIndex, type BookItem, type IndexResponse } from "../api/books";
 import { useUserStore } from "../stores/user";
+import PageHeader from "../components/PageHeader.vue";
+import BookCard from "../components/BookCard.vue";
+import StateBlock from "../components/StateBlock.vue";
 
 const router = useRouter();
 const userStore = useUserStore();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const sections = ref<IndexResponse["sections"]>({});
+
+const SECTION_COLORS = [
+  "text-brand-pink",
+  "text-brand-teal",
+  "text-brand-lavender",
+  "text-brand-coral",
+  "text-brand-ochre",
+];
 
 async function loadIndex() {
   loading.value = true;
@@ -27,14 +38,6 @@ function openBook(book: BookItem) {
   router.push({ name: "book-detail", params: { id: book.id } });
 }
 
-function goSearch() {
-  router.push({ name: "search" });
-}
-
-function goCategories() {
-  router.push({ name: "categories" });
-}
-
 function go(path: string) {
   router.push(path);
 }
@@ -46,121 +49,94 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0f0f0f] text-[#f0f0f0]">
-    <header
-      class="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#0f0f0f]/90 px-6 py-4 backdrop-blur"
-    >
-      <h1 class="text-xl font-bold">JMComic</h1>
-      <div class="flex gap-2">
-        <button
-          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
-          @click="go('/favorites')"
-        >
-          收藏
-        </button>
-        <button
-          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
-          @click="go('/history')"
-        >
-          历史
-        </button>
-        <button
-          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
-          @click="go('/downloads')"
-        >
-          下载
-        </button>
-        <button
-          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
-          @click="go('/local')"
-        >
-          本地
-        </button>
-        <button
-          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
-          @click="go('/nas')"
-        >
-          NAS
-        </button>
-        <button
-          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
-          @click="go('/tools')"
-        >
-          工具
-        </button>
-        <button
-          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
-          @click="go('/settings')"
-        >
-          设置
-        </button>
-        <button
-          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
-          @click="goCategories"
-        >
-          分类
-        </button>
-        <button
-          class="rounded-lg bg-[#feca57] px-4 py-2 text-sm font-medium text-[#0f0f0f] hover:bg-[#ffdb7a]"
-          @click="goSearch"
-        >
-          搜索
-        </button>
-        <button
-          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
-          @click="go('/login')"
-        >
-          {{ userStore.user ? userStore.user.username : "登录" }}
-        </button>
-      </div>
-    </header>
+  <div class="min-h-screen bg-canvas text-ink">
+    <PageHeader :back="false" title="JMComic">
+      <button
+        class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
+        @click="go('/favorites')"
+      >
+        收藏
+      </button>
+      <button
+        class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
+        @click="go('/history')"
+      >
+        历史
+      </button>
+      <button
+        class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
+        @click="go('/downloads')"
+      >
+        下载
+      </button>
+      <button
+        class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
+        @click="go('/local')"
+      >
+        本地
+      </button>
+      <button
+        class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
+        @click="go('/nas')"
+      >
+        NAS
+      </button>
+      <button
+        class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
+        @click="go('/tools')"
+      >
+        工具
+      </button>
+      <button
+        class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
+        @click="go('/settings')"
+      >
+        设置
+      </button>
+      <button
+        class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
+        @click="go('/categories')"
+      >
+        分类
+      </button>
+      <button
+        class="rounded-md bg-ink px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-ink-active"
+        @click="go('/search')"
+      >
+        搜索
+      </button>
+      <button
+        class="max-w-32 truncate rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
+        @click="go('/login')"
+      >
+        {{ userStore.user ? userStore.user.username : "登录" }}
+      </button>
+    </PageHeader>
 
-    <main class="p-6">
-      <div v-if="loading" class="py-20 text-center text-gray-400">
-        加载中...
-      </div>
-      <div v-else-if="error" class="py-20 text-center text-red-400">
-        <p>{{ error }}</p>
-        <p class="mt-2 text-sm text-gray-500">
+    <main class="mx-auto max-w-7xl p-6">
+      <StateBlock v-if="loading" type="loading" />
+      <StateBlock v-else-if="error" type="error" :message="error" @retry="loadIndex">
+        <p class="mt-2 text-sm text-muted-soft">
           JM 服务器不太稳定，若重试三次仍失败，可能是对方服务器问题。
         </p>
-        <button
-          class="mt-4 rounded-lg bg-red-500/20 px-4 py-2 text-sm text-red-300 hover:bg-red-500/30"
-          @click="loadIndex"
-        >
-          重试
-        </button>
-      </div>
+      </StateBlock>
 
-      <div v-else class="space-y-10">
-        <section v-for="(books, title) in sections" :key="title">
-          <h2 class="mb-4 text-lg font-semibold text-[#feca57]">{{ title }}</h2>
+      <div v-else class="space-y-12">
+        <section v-for="(books, title, i) in sections" :key="title">
+          <h2 class="display mb-4 text-xl" :class="SECTION_COLORS[i % SECTION_COLORS.length]">
+            {{ title }}
+          </h2>
           <div
             class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
           >
-            <div
+            <BookCard
               v-for="book in books"
               :key="book.id"
-              class="group cursor-pointer overflow-hidden rounded-xl bg-[#1a1a1a] transition hover:scale-[1.02] hover:shadow-lg"
-              @click="openBook(book)"
-            >
-              <div class="aspect-[3/4] overflow-hidden bg-gray-800">
-                <img
-                  :src="book.coverUrl"
-                  :alt="book.title"
-                  class="h-full w-full object-cover transition group-hover:opacity-90"
-                  loading="lazy"
-                />
-              </div>
-              <div class="p-3">
-                <h3 class="line-clamp-2 text-sm font-medium leading-snug">
-                  {{ book.title }}
-                </h3>
-                <p class="mt-1 truncate text-xs text-gray-500">
-                  {{ book.authorList.join(", ") || "未知作者" }}
-                </p>
-              </div>
-            </div>
+              :cover="book.coverUrl"
+              :title="book.title"
+              :author="book.authorList.join(', ') || '未知作者'"
+              @open="openBook(book)"
+            />
           </div>
         </section>
       </div>

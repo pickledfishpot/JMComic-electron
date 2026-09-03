@@ -361,13 +361,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="fixed inset-0 flex select-none flex-col bg-black text-[#f0f0f0]"
+    class="fixed inset-0 flex select-none flex-col bg-surface-dark text-canvas"
     @mousemove="showToolbar"
   >
     <!-- 顶栏 -->
     <header
       v-show="toolbarVisible"
-      class="absolute inset-x-0 top-0 z-20 flex items-center gap-3 border-b border-white/10 bg-black/80 px-4 py-2.5 backdrop-blur transition-opacity"
+      class="absolute inset-x-0 top-0 z-20 flex items-center gap-3 border-b border-white/10 bg-surface-dark/80 px-4 py-2.5 backdrop-blur transition-opacity"
     >
       <button class="rounded-lg p-1.5 hover:bg-white/10" @click="goBack">
         ← 返回
@@ -394,7 +394,7 @@ onBeforeUnmount(() => {
             v-for="eps in book.eps"
             :key="eps.index"
             :value="eps.index"
-            class="bg-[#1a1a1a]"
+            class="bg-surface-dark-elevated"
           >
             第 {{ eps.index + 1 }} 话{{ eps.name ? ` · ${eps.name}` : "" }}
           </option>
@@ -527,14 +527,14 @@ onBeforeUnmount(() => {
     <footer
       v-if="totalPages && !loading && !error"
       v-show="toolbarVisible || mode === 'flip'"
-      class="absolute inset-x-0 bottom-0 z-20 border-t border-white/10 bg-black/80 px-4 py-2 backdrop-blur"
+      class="absolute inset-x-0 bottom-0 z-20 border-t border-white/10 bg-surface-dark/80 px-4 py-2 backdrop-blur"
     >
       <input
         v-model.number="currentPage"
         type="range"
         :min="0"
         :max="totalPages - 1"
-        class="w-full accent-[#feca57]"
+        class="w-full accent-brand-ochre"
       />
     </footer>
   </div>

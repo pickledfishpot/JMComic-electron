@@ -8,10 +8,12 @@ import {
   type Category,
   type CategoryBooksResponse,
 } from "../api/books";
-import { useGoBack } from "../composables/useGoBack";
+import PageHeader from "../components/PageHeader.vue";
+import BookCard from "../components/BookCard.vue";
+import PillTabs from "../components/PillTabs.vue";
+import StateBlock from "../components/StateBlock.vue";
 
 const router = useRouter();
-const goBack = useGoBack();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -65,112 +67,56 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0f0f0f] text-[#f0f0f0]">
-    <header
-      class="sticky top-0 z-10 flex items-center gap-3 border-b border-white/10 bg-[#0f0f0f]/90 px-4 py-3 backdrop-blur"
-    >
-      <button class="rounded-lg p-2 hover:bg-white/10" @click="goBack">
-        ← 返回
-      </button>
-      <h1 class="text-base font-bold">分类</h1>
-    </header>
+  <div class="min-h-screen bg-canvas text-ink">
+    <PageHeader title="分类" />
 
     <main class="p-6">
-      <div
-        v-if="loading && !categories.length"
-        class="py-20 text-center text-gray-400"
+      <StateBlock v-if="loading && !categories.length" type="loading" />
+      <StateBlock
+        v-else-if="error"
+        type="error"
+        :message="error"
+        @retry="loadCategories"
       >
-        加载中...
-      </div>
-      <div v-else-if="error" class="py-20 text-center text-red-400">
-        <p>{{ error }}</p>
-        <p class="mt-2 text-sm text-gray-500">
+        <p class="mt-2 text-sm text-muted-soft">
           JM 服务器不太稳定，若重试三次仍失败，可能是对方服务器问题。
         </p>
-        <button
-          class="mt-4 rounded-lg bg-red-500/20 px-4 py-2 text-sm text-red-300 hover:bg-red-500/30"
-          @click="loadCategories"
-        >
-          重试
-        </button>
-      </div>
+      </StateBlock>
 
       <div v-else class="space-y-6">
-        <div class="flex flex-wrap gap-2">
-          <button
-            class="rounded-full px-4 py-1.5 text-sm"
-            :class="
-              activeSlug === '0'
-                ? 'bg-[#feca57] text-[#0f0f0f]'
-                : 'bg-[#1a1a1a] text-gray-300 hover:bg-[#252525]'
-            "
-            @click="loadCategoryBooks('0')"
-          >
-            全部
-          </button>
-          <button
-            v-for="cat in categories"
-            :key="cat.id"
-            class="rounded-full px-4 py-1.5 text-sm"
-            :class="
-              activeSlug === cat.slug
-                ? 'bg-[#feca57] text-[#0f0f0f]'
-                : 'bg-[#1a1a1a] text-gray-300 hover:bg-[#252525]'
-            "
-            @click="loadCategoryBooks(cat.slug)"
-          >
-            {{ cat.name }}
-          </button>
-        </div>
+        <PillTabs
+          :model-value="activeSlug"
+          :options="[
+            { value: '0', label: '全部' },
+            ...categories.map((c) => ({ value: c.slug, label: c.name })),
+          ]"
+          @update:model-value="(v) => loadCategoryBooks(v)"
+        />
 
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-gray-400">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm text-muted">
             {{ booksResult ? `共 ${booksResult.total} 本` : "" }}
           </p>
-          <div class="flex gap-2">
-            <button
-              v-for="opt in sortOptions"
-              :key="opt.value"
-              class="rounded-full px-3 py-1 text-xs"
-              :class="
-                booksResult?.sort === opt.value
-                  ? 'bg-[#feca57] text-[#0f0f0f]'
-                  : 'bg-[#1a1a1a] text-gray-400 hover:bg-[#252525]'
-              "
-              @click="loadCategoryBooks(activeSlug, 1, opt.value)"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
+          <PillTabs
+            :model-value="booksResult?.sort || 'mr'"
+            :options="sortOptions"
+            size="sm"
+            @update:model-value="(v) => loadCategoryBooks(activeSlug, 1, v)"
+          />
         </div>
 
         <div
           v-if="booksResult"
           class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
         >
-          <div
+          <BookCard
             v-for="book in booksResult.books"
             :key="book.id"
-            class="group cursor-pointer overflow-hidden rounded-xl bg-[#1a1a1a] transition hover:scale-[1.02] hover:shadow-lg"
-            @click="openBook(book)"
-          >
-            <div class="aspect-[3/4] overflow-hidden bg-gray-800">
-              <img
-                :src="book.coverUrl"
-                :alt="book.title"
-                class="h-full w-full object-cover transition group-hover:opacity-90"
-                loading="lazy"
-              />
-            </div>
-            <div class="p-3">
-              <h3 class="line-clamp-2 text-sm font-medium leading-snug">
-                {{ book.title }}
-              </h3>
-              <p class="mt-1 truncate text-xs text-gray-500">
-                {{ book.authorList.join(", ") || "未知作者" }}
-              </p>
-            </div>
-          </div>
+            :cover="book.coverUrl"
+            :title="book.title"
+            :author="book.authorList.join(', ') || '未知作者'"
+            @open="openBook(book)"
+          />
         </div>
       </div>
     </main>

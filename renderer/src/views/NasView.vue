@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
 import {
   addNas,
   deleteNas,
@@ -12,8 +11,9 @@ import {
   type NasConfigInput,
 } from "../api/nas";
 import { listDownloads, type DownloadTask } from "../api/downloads";
+import PageHeader from "../components/PageHeader.vue";
+import StateBlock from "../components/StateBlock.vue";
 
-const router = useRouter();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const configs = ref<NasConfig[]>([]);
@@ -122,68 +122,37 @@ async function load() {
   }
 }
 
-function goBack() {
-  router.push("/");
-}
-
 onMounted(load);
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0f0f0f] text-[#f0f0f0]">
-    <header
-      class="sticky top-0 z-10 flex items-center gap-3 border-b border-white/10 bg-[#0f0f0f]/90 px-4 py-3 backdrop-blur"
-    >
-      <button class="rounded-lg p-2 hover:bg-white/10" @click="goBack">
-        ← 返回
-      </button>
-      <h1 class="text-base font-bold">NAS 上传</h1>
+  <div class="min-h-screen bg-canvas text-ink">
+    <PageHeader title="NAS 上传">
       <button
-        class="ml-auto rounded-lg bg-[#feca57] px-3 py-1.5 text-sm font-medium text-black hover:opacity-90"
+        class="rounded-md bg-ink px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-ink-active"
         @click="startAdd"
       >
         + 添加配置
       </button>
-    </header>
+    </PageHeader>
 
     <main class="mx-auto max-w-2xl p-6">
-      <div
-        v-if="message"
-        class="mb-4 rounded-lg bg-green-500/10 p-3 text-sm text-green-400"
-      >
-        {{ message }}
-      </div>
-      <div
-        v-if="error"
-        class="mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-400"
-      >
-        {{ error }}
-      </div>
+      <div v-if="message" class="banner-success mb-4">{{ message }}</div>
+      <div v-if="error" class="banner-error mb-4">{{ error }}</div>
 
       <!-- 编辑表单 -->
-      <form
-        v-if="editing"
-        class="mb-6 space-y-3 rounded-xl bg-[#1a1a1a] p-4"
-        @submit.prevent="save"
-      >
+      <form v-if="editing" class="card mb-6 space-y-3 p-4" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-3">
           <label class="block text-sm">
             名称
-            <input
-              v-model="editing.name"
-              required
-              class="mt-1 w-full rounded-lg bg-[#0f0f0f] px-3 py-2 outline-none focus:ring-1 focus:ring-[#feca57]"
-            />
+            <input v-model="editing.name" required class="input mt-1" />
           </label>
           <label class="block text-sm">
             协议
-            <select
-              v-model="editing.protocol"
-              class="mt-1 w-full rounded-lg bg-[#0f0f0f] px-3 py-2 outline-none"
-            >
-              <option value="webdav" class="bg-[#1a1a1a]">WebDAV</option>
-              <option value="smb" class="bg-[#1a1a1a]">SMB</option>
-              <option value="local" class="bg-[#1a1a1a]">本地目录</option>
+            <select v-model="editing.protocol" class="input mt-1">
+              <option value="webdav">WebDAV</option>
+              <option value="smb">SMB</option>
+              <option value="local">本地目录</option>
             </select>
           </label>
         </div>
@@ -196,7 +165,7 @@ onMounted(load);
                 ? 'https://dav.example.com'
                 : '\\\\nas\\share'
             "
-            class="mt-1 w-full rounded-lg bg-[#0f0f0f] px-3 py-2 outline-none focus:ring-1 focus:ring-[#feca57]"
+            class="input mt-1"
           />
         </label>
         <div class="grid grid-cols-3 gap-3">
@@ -207,15 +176,12 @@ onMounted(load);
               type="number"
               min="0"
               max="65535"
-              class="mt-1 w-full rounded-lg bg-[#0f0f0f] px-3 py-2 outline-none"
+              class="input mt-1"
             />
           </label>
           <label v-if="editing.protocol !== 'local'" class="block text-sm">
             用户名
-            <input
-              v-model="editing.username"
-              class="mt-1 w-full rounded-lg bg-[#0f0f0f] px-3 py-2 outline-none"
-            />
+            <input v-model="editing.username" class="input mt-1" />
           </label>
           <label v-if="editing.protocol !== 'local'" class="block text-sm">
             密码
@@ -223,7 +189,7 @@ onMounted(load);
               v-model="editing.password"
               type="password"
               placeholder="不变可留空"
-              class="mt-1 w-full rounded-lg bg-[#0f0f0f] px-3 py-2 outline-none"
+              class="input mt-1"
             />
           </label>
         </div>
@@ -234,19 +200,19 @@ onMounted(load);
             :placeholder="
               editing.protocol === 'local' ? '/path/to/backup' : '/comics'
             "
-            class="mt-1 w-full rounded-lg bg-[#0f0f0f] px-3 py-2 outline-none focus:ring-1 focus:ring-[#feca57]"
+            class="input mt-1"
           />
         </label>
         <div class="flex gap-2 pt-1">
           <button
             type="submit"
-            class="rounded-lg bg-[#feca57] px-4 py-2 text-sm font-medium text-black hover:opacity-90"
+            class="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink-active"
           >
             保存
           </button>
           <button
             type="button"
-            class="rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+            class="rounded-md border border-hairline bg-canvas px-4 py-2 text-sm font-medium transition hover:bg-surface-soft"
             @click="editing = null"
           >
             取消
@@ -254,28 +220,24 @@ onMounted(load);
         </div>
       </form>
 
-      <div v-if="loading" class="py-20 text-center text-gray-400">
-        加载中...
-      </div>
-      <p v-else-if="!configs.length" class="py-20 text-center text-gray-500">
-        还没有 NAS 配置
-      </p>
+      <StateBlock v-if="loading" type="loading" />
+      <StateBlock
+        v-else-if="!configs.length"
+        type="empty"
+        message="还没有 NAS 配置"
+      />
 
       <div v-else class="space-y-3">
-        <div
-          v-for="config in configs"
-          :key="config.id"
-          class="rounded-xl bg-[#1a1a1a] p-4"
-        >
+        <div v-for="config in configs" :key="config.id" class="card p-4">
           <div class="flex items-center gap-3">
             <div class="min-w-0 flex-1">
               <p class="truncate font-medium">
                 {{ config.name }}
-                <span class="ml-2 text-xs text-gray-500">{{
+                <span class="ml-2 text-xs text-muted-soft">{{
                   config.protocol
                 }}</span>
               </p>
-              <p class="mt-0.5 truncate text-xs text-gray-500">
+              <p class="mt-0.5 truncate text-xs text-muted">
                 {{
                   config.protocol === "local"
                     ? config.remotePath
@@ -285,54 +247,49 @@ onMounted(load);
             </div>
             <div class="flex shrink-0 gap-2">
               <button
-                class="rounded-lg bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
+                class="rounded-md border border-hairline bg-canvas px-3 py-1 text-xs font-medium transition hover:bg-surface-soft"
                 :disabled="testing === config.id"
                 @click="test(config)"
               >
                 {{ testing === config.id ? "测试中..." : "测试" }}
               </button>
               <button
-                class="rounded-lg bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
+                class="rounded-md border border-hairline bg-canvas px-3 py-1 text-xs font-medium transition hover:bg-surface-soft"
                 @click="openUpload(config)"
               >
                 上传
               </button>
               <button
-                class="rounded-lg bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
+                class="rounded-md border border-hairline bg-canvas px-3 py-1 text-xs font-medium transition hover:bg-surface-soft"
                 @click="startEdit(config)"
               >
                 编辑
               </button>
-              <button
-                class="rounded-lg bg-red-500/10 px-3 py-1 text-xs text-red-300 hover:bg-red-500/20"
-                @click="remove(config)"
-              >
-                删除
-              </button>
+              <button class="btn-danger" @click="remove(config)">删除</button>
             </div>
           </div>
 
           <!-- 选择已下载书籍上传 -->
           <div
             v-if="showUploadFor === config.id"
-            class="mt-3 border-t border-white/10 pt-3"
+            class="mt-3 border-t border-hairline pt-3"
           >
-            <p class="mb-2 text-xs text-gray-500">选择要上传的已下载书籍：</p>
-            <p v-if="!downloads.length" class="text-sm text-gray-500">
+            <p class="mb-2 text-xs text-muted">选择要上传的已下载书籍：</p>
+            <p v-if="!downloads.length" class="text-sm text-muted">
               暂无已完成的下载任务
             </p>
             <div v-else class="space-y-1">
               <button
                 v-for="task in downloads"
                 :key="task.id"
-                class="flex w-full items-center justify-between rounded-lg bg-[#0f0f0f] px-3 py-2 text-left text-sm hover:bg-[#252525]"
+                class="flex w-full items-center justify-between rounded-md bg-surface-soft px-3 py-2 text-left text-sm transition hover:bg-surface-strong"
                 :disabled="uploading === task.id"
                 @click="upload(config, task)"
               >
                 <span class="truncate">
                   {{ task.bookTitle || task.bookId }}
                 </span>
-                <span class="ml-2 shrink-0 text-xs text-gray-500">
+                <span class="ml-2 shrink-0 text-xs text-muted">
                   {{ uploading === task.id ? "上传中..." : "点击上传" }}
                 </span>
               </button>

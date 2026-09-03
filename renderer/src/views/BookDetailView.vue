@@ -12,7 +12,8 @@ import {
 import { toggleFavorite } from "../api/account";
 import { startDownload } from "../api/downloads";
 import { useUserStore } from "../stores/user";
-import { useGoBack } from "../composables/useGoBack";
+import PageHeader from "../components/PageHeader.vue";
+import StateBlock from "../components/StateBlock.vue";
 
 const props = defineProps<{ id: string }>();
 const router = useRouter();
@@ -65,10 +66,7 @@ async function loadComments(page = 1) {
   }
 }
 
-const goBack = useGoBack();
-
-function startReading(epsIndex?: number) {
-  const idx = epsIndex ?? progress.value?.epsIndex ?? 0;
+function startReading(epsIndex?: number) {  const idx = epsIndex ?? progress.value?.epsIndex ?? 0;
   router.push(`/read/${props.id}/${idx}`);
 }
 
@@ -110,39 +108,21 @@ watch(() => props.id, loadDetail, { immediate: true });
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0f0f0f] text-[#f0f0f0]">
-    <header
-      class="sticky top-0 z-10 flex items-center gap-3 border-b border-white/10 bg-[#0f0f0f]/90 px-4 py-3 backdrop-blur"
-    >
-      <button class="rounded-lg p-2 hover:bg-white/10" @click="goBack">
-        ← 返回
-      </button>
-      <h1 class="line-clamp-1 text-base font-bold">
-        {{ book?.title || "书籍详情" }}
-      </h1>
-    </header>
+  <div class="min-h-screen bg-canvas text-ink">
+    <PageHeader :title="book?.title || '书籍详情'" />
 
     <main class="p-6">
-      <div v-if="loading" class="py-20 text-center text-gray-400">
-        加载中...
-      </div>
-      <div v-else-if="error" class="py-20 text-center text-red-400">
-        <p>{{ error }}</p>
-        <p class="mt-2 text-sm text-gray-500">
+      <StateBlock v-if="loading" type="loading" />
+      <StateBlock v-else-if="error" type="error" :message="error" @retry="loadDetail">
+        <p class="mt-2 text-sm text-muted-soft">
           JM 服务器不太稳定，若重试三次仍失败，可能是对方服务器问题。
         </p>
-        <button
-          class="mt-4 rounded-lg bg-red-500/20 px-4 py-2 text-sm text-red-300 hover:bg-red-500/30"
-          @click="loadDetail"
-        >
-          重试
-        </button>
-      </div>
+      </StateBlock>
 
       <div v-else-if="book" class="mx-auto max-w-4xl space-y-8">
         <div class="flex flex-col gap-6 md:flex-row">
           <div class="w-full shrink-0 md:w-64">
-            <div class="aspect-[3/4] overflow-hidden rounded-xl bg-gray-800">
+            <div class="aspect-[3/4] overflow-hidden rounded-xl bg-surface-strong">
               <img
                 :src="book.coverUrl"
                 :alt="book.title"
@@ -152,27 +132,20 @@ watch(() => props.id, loadDetail, { immediate: true });
           </div>
 
           <div class="flex-1">
-            <h2 class="text-2xl font-bold">{{ book.title }}</h2>
-            <div class="mt-2 flex flex-wrap gap-2 text-sm text-gray-400">
+            <h2 class="display text-2xl">{{ book.title }}</h2>
+            <div class="mt-2 flex flex-wrap gap-2 text-sm text-muted">
               <span>作者：{{ book.authorList.join(", ") || "未知" }}</span>
               <span v-if="book.likes">❤️ {{ book.likes }}</span>
               <span v-if="book.views">👁️ {{ book.views }}</span>
             </div>
 
             <div class="mt-4 flex flex-wrap gap-2">
-              <span
-                v-for="tag in book.tags"
-                :key="tag"
-                class="rounded-full bg-white/10 px-3 py-1 text-xs text-gray-300"
-              >
+              <span v-for="tag in book.tags" :key="tag" class="badge-pill">
                 {{ tag }}
               </span>
             </div>
 
-            <p
-              v-if="book.description"
-              class="mt-6 leading-relaxed text-gray-300"
-            >
+            <p v-if="book.description" class="mt-6 leading-relaxed text-body">
               {{ book.description }}
             </p>
 
@@ -180,7 +153,7 @@ watch(() => props.id, loadDetail, { immediate: true });
               <div class="mb-3 flex flex-wrap items-center gap-3">
                 <h3 class="font-semibold">章节列表</h3>
                 <button
-                  class="rounded-lg bg-[#feca57] px-4 py-1.5 text-sm font-medium text-black hover:opacity-90"
+                  class="inline-flex h-9 items-center rounded-md bg-ink px-4 text-xs font-semibold text-white transition hover:bg-ink-active"
                   @click="startReading()"
                 >
                   {{
@@ -190,11 +163,11 @@ watch(() => props.id, loadDetail, { immediate: true });
                   }}
                 </button>
                 <button
-                  class="rounded-lg px-4 py-1.5 text-sm"
+                  class="inline-flex h-9 items-center gap-1 rounded-md px-4 text-xs font-semibold transition"
                   :class="
                     book.isFavorite
-                      ? 'bg-[#feca57]/20 text-[#feca57]'
-                      : 'bg-white/10 hover:bg-white/20'
+                      ? 'bg-brand-pink/15 text-brand-pink'
+                      : 'border border-hairline bg-canvas text-ink hover:bg-surface-soft'
                   "
                   :disabled="favoriteBusy"
                   @click="toggleFav"
@@ -202,7 +175,7 @@ watch(() => props.id, loadDetail, { immediate: true });
                   {{ book.isFavorite ? "★ 已收藏" : "☆ 收藏" }}
                 </button>
                 <button
-                  class="rounded-lg bg-white/10 px-4 py-1.5 text-sm hover:bg-white/20"
+                  class="inline-flex h-9 items-center gap-1 rounded-md border border-hairline bg-canvas px-4 text-xs font-semibold text-ink transition hover:bg-surface-soft"
                   :disabled="downloadBusy"
                   @click="downloadBook"
                 >
@@ -210,31 +183,31 @@ watch(() => props.id, loadDetail, { immediate: true });
                 </button>
                 <router-link
                   to="/downloads"
-                  class="text-xs text-gray-500 hover:text-gray-300"
+                  class="text-xs text-muted-soft underline-offset-4 hover:text-ink hover:underline"
                 >
                   下载管理 →
                 </router-link>
               </div>
-              <p v-if="favoriteMessage" class="mb-2 text-xs text-gray-400">
+              <p v-if="favoriteMessage" class="mb-2 text-xs text-muted">
                 {{ favoriteMessage }}
               </p>
-              <p v-if="downloadMessage" class="mb-2 text-xs text-gray-400">
+              <p v-if="downloadMessage" class="mb-2 text-xs text-muted">
                 {{ downloadMessage }}
               </p>
               <div class="grid gap-2 sm:grid-cols-2">
                 <button
                   v-for="eps in book.eps"
                   :key="eps.index"
-                  class="rounded-lg bg-[#1a1a1a] px-4 py-3 text-left text-sm hover:bg-[#252525]"
+                  class="rounded-md bg-surface-card px-4 py-3 text-left text-sm transition hover:bg-surface-strong"
                   @click="startReading(eps.index)"
                 >
                   第 {{ eps.index + 1 }} 话
-                  <span v-if="eps.name" class="ml-2 text-gray-500">{{
+                  <span v-if="eps.name" class="ml-2 text-muted-soft">{{
                     eps.name
                   }}</span>
                   <span
                     v-if="progress && progress.epsIndex === eps.index"
-                    class="ml-2 text-xs text-[#feca57]"
+                    class="ml-2 text-xs text-brand-ochre"
                   >
                     ● 读至第 {{ progress.pageIndex + 1 }} 页
                   </span>
@@ -244,32 +217,31 @@ watch(() => props.id, loadDetail, { immediate: true });
           </div>
         </div>
 
-        <div class="border-t border-white/10 pt-8">
+        <div class="border-t border-hairline pt-8">
           <h3 class="mb-4 font-semibold">
             评论
-            <span v-if="book.commentTotal" class="ml-2 text-sm text-gray-500">
+            <span v-if="book.commentTotal" class="ml-2 text-sm text-muted-soft">
               ({{ book.commentTotal }})
             </span>
           </h3>
 
-          <div v-if="commentsLoading" class="py-10 text-center text-gray-400">
-            加载评论中...
-          </div>
-          <div v-else-if="commentsError" class="py-10 text-center text-red-400">
-            <p>{{ commentsError }}</p>
-            <button
-              class="mt-2 rounded-lg bg-red-500/20 px-4 py-2 text-sm text-red-300 hover:bg-red-500/30"
-              @click="loadComments()"
-            >
-              重试
-            </button>
-          </div>
+          <StateBlock
+            v-if="commentsLoading"
+            type="loading"
+            message="加载评论中..."
+          />
+          <StateBlock
+            v-else-if="commentsError"
+            type="error"
+            :message="commentsError"
+            @retry="loadComments()"
+          />
 
           <div v-else-if="commentsResult" class="space-y-4">
             <div
               v-for="comment in commentsResult.comments"
               :key="comment.id"
-              class="rounded-xl bg-[#1a1a1a] p-4"
+              class="card p-4"
             >
               <div class="flex items-start gap-3">
                 <img
@@ -279,21 +251,21 @@ watch(() => props.id, loadDetail, { immediate: true });
                 />
                 <div
                   v-else
-                  class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm"
+                  class="flex h-10 w-10 items-center justify-center rounded-full bg-surface-strong text-sm"
                 >
                   {{ comment.name?.[0] || "?" }}
                 </div>
                 <div class="flex-1">
                   <div class="flex items-center gap-2 text-sm">
                     <span class="font-medium">{{ comment.name }}</span>
-                    <span v-if="comment.title" class="text-xs text-[#feca57]">{{
+                    <span v-if="comment.title" class="text-xs text-brand-coral">{{
                       comment.title
                     }}</span>
-                    <span v-if="comment.date" class="text-xs text-gray-500">{{
+                    <span v-if="comment.date" class="text-xs text-muted-soft">{{
                       comment.date
                     }}</span>
                   </div>
-                  <p class="mt-2 text-sm text-gray-300">
+                  <p class="mt-2 text-sm text-body">
                     {{ comment.content }}
                   </p>
 
@@ -304,27 +276,26 @@ watch(() => props.id, loadDetail, { immediate: true });
                     <div
                       v-for="sub in comment.subComments"
                       :key="sub.id"
-                      class="rounded-lg bg-[#0f0f0f] p-3 text-sm"
+                      class="rounded-md bg-surface-soft p-3 text-sm"
                     >
                       <div class="flex items-center gap-2">
                         <span class="font-medium">{{ sub.name }}</span>
-                        <span v-if="sub.title" class="text-xs text-[#feca57]">{{
+                        <span v-if="sub.title" class="text-xs text-brand-coral">{{
                           sub.title
                         }}</span>
                       </div>
-                      <p class="mt-1 text-gray-400">{{ sub.content }}</p>
+                      <p class="mt-1 text-muted">{{ sub.content }}</p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <p
+            <StateBlock
               v-if="commentsResult.comments.length === 0"
-              class="py-10 text-center text-gray-500"
-            >
-              暂无评论
-            </p>
+              type="empty"
+              message="暂无评论"
+            />
           </div>
         </div>
       </div>

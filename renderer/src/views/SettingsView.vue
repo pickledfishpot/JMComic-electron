@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
 import { apiFetch } from "../api/client";
+import PageHeader from "../components/PageHeader.vue";
 
 interface Settings {
   theme: string;
@@ -15,7 +15,6 @@ interface Settings {
   local: { dirs: string[] };
 }
 
-const router = useRouter();
 const loading = ref(false);
 const saving = ref(false);
 const message = ref<string | null>(null);
@@ -66,50 +65,27 @@ function removeDir(index: number) {
   settings.value?.local.dirs.splice(index, 1);
 }
 
-function goBack() {
-  router.push("/");
-}
-
 onMounted(load);
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0f0f0f] text-[#f0f0f0]">
-    <header
-      class="sticky top-0 z-10 flex items-center gap-3 border-b border-white/10 bg-[#0f0f0f]/90 px-4 py-3 backdrop-blur"
-    >
-      <button class="rounded-lg p-2 hover:bg-white/10" @click="goBack">
-        ← 返回
-      </button>
-      <h1 class="text-base font-bold">设置</h1>
-    </header>
+  <div class="min-h-screen bg-canvas text-ink">
+    <PageHeader title="设置" />
 
     <main class="mx-auto max-w-xl space-y-6 p-6">
-      <div v-if="loading" class="py-20 text-center text-gray-400">
-        加载中...
-      </div>
+      <div v-if="loading" class="py-20 text-center text-muted">加载中...</div>
       <template v-else-if="settings">
-        <div
-          v-if="message"
-          class="rounded-lg bg-green-500/10 p-3 text-sm text-green-400"
-        >
-          {{ message }}
-        </div>
-        <div
-          v-if="error"
-          class="rounded-lg bg-red-500/10 p-3 text-sm text-red-400"
-        >
-          {{ error }}
-        </div>
+        <div v-if="message" class="banner-success">{{ message }}</div>
+        <div v-if="error" class="banner-error">{{ error }}</div>
 
         <!-- 代理 -->
-        <section class="rounded-xl bg-[#1a1a1a] p-4">
+        <section class="card p-4">
           <h2 class="mb-3 font-medium">网络代理</h2>
           <label class="flex items-center gap-2 text-sm">
             <input
               v-model="settings.proxy.enabled"
               type="checkbox"
-              class="accent-[#feca57]"
+              class="accent-ink"
             />
             启用代理
           </label>
@@ -119,7 +95,7 @@ onMounted(load);
               <input
                 v-model="settings.proxy.http"
                 placeholder="http://127.0.0.1:7890"
-                class="mt-1 w-full rounded-lg bg-[#0f0f0f] px-3 py-2 outline-none focus:ring-1 focus:ring-[#feca57]"
+                class="input mt-1"
               />
             </label>
             <label class="block text-sm">
@@ -127,7 +103,7 @@ onMounted(load);
               <input
                 v-model="settings.proxy.https"
                 placeholder="https://127.0.0.1:7890"
-                class="mt-1 w-full rounded-lg bg-[#0f0f0f] px-3 py-2 outline-none focus:ring-1 focus:ring-[#feca57]"
+                class="input mt-1"
               />
             </label>
             <label class="block text-sm">
@@ -135,19 +111,19 @@ onMounted(load);
               <input
                 v-model="settings.proxy.socks5"
                 placeholder="socks5://127.0.0.1:7890"
-                class="mt-1 w-full rounded-lg bg-[#0f0f0f] px-3 py-2 outline-none focus:ring-1 focus:ring-[#feca57]"
+                class="input mt-1"
               />
             </label>
-            <p class="text-xs text-gray-500">
+            <p class="text-xs text-muted">
               按 HTTP → HTTPS → SOCKS5 顺序取第一个非空值生效。
             </p>
           </div>
         </section>
 
         <!-- 本地图库目录 -->
-        <section class="rounded-xl bg-[#1a1a1a] p-4">
+        <section class="card p-4">
           <h2 class="mb-3 font-medium">本地图库扫描目录</h2>
-          <p class="mb-3 text-xs text-gray-500">
+          <p class="mb-3 text-xs text-muted">
             下载目录始终包含在内，此处添加额外的漫画存放目录。
           </p>
           <div
@@ -156,26 +132,21 @@ onMounted(load);
             class="mb-2 flex items-center gap-2"
           >
             <span
-              class="min-w-0 flex-1 truncate rounded-lg bg-[#0f0f0f] px-3 py-2 text-sm"
+              class="min-w-0 flex-1 truncate rounded-md bg-surface-soft px-3 py-2 text-sm"
             >
               {{ dir }}
             </span>
-            <button
-              class="rounded-lg bg-red-500/10 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/20"
-              @click="removeDir(index)"
-            >
-              删除
-            </button>
+            <button class="btn-danger" @click="removeDir(index)">删除</button>
           </div>
           <div class="flex gap-2">
             <input
               v-model="newDir"
               placeholder="/path/to/comics"
-              class="min-w-0 flex-1 rounded-lg bg-[#0f0f0f] px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[#feca57]"
+              class="input min-w-0 flex-1"
               @keyup.enter="addDir"
             />
             <button
-              class="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/20"
+              class="rounded-md border border-hairline bg-canvas px-3 text-sm font-medium transition hover:bg-surface-soft"
               @click="addDir"
             >
               添加
@@ -183,11 +154,7 @@ onMounted(load);
           </div>
         </section>
 
-        <button
-          class="w-full rounded-lg bg-[#feca57] py-2.5 font-medium text-black hover:opacity-90 disabled:opacity-50"
-          :disabled="saving"
-          @click="save"
-        >
+        <button class="btn-primary w-full" :disabled="saving" @click="save">
           {{ saving ? "保存中..." : "保存设置" }}
         </button>
       </template>

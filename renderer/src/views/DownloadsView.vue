@@ -8,9 +8,9 @@ import {
   retryDownload,
   type DownloadTask,
 } from "../api/downloads";
-import { useGoBack } from "../composables/useGoBack";
+import PageHeader from "../components/PageHeader.vue";
+import StateBlock from "../components/StateBlock.vue";
 
-const goBack = useGoBack();
 const tasks = ref<DownloadTask[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -85,50 +85,32 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0f0f0f] text-[#f0f0f0]">
-    <header
-      class="sticky top-0 z-10 flex items-center gap-3 border-b border-white/10 bg-[#0f0f0f]/90 px-4 py-3 backdrop-blur"
-    >
-      <button class="rounded-lg p-2 hover:bg-white/10" @click="goBack">
-        ← 返回
-      </button>
-      <h1 class="text-base font-bold">下载管理</h1>
+  <div class="min-h-screen bg-canvas text-ink">
+    <PageHeader title="下载管理">
       <button
-        class="ml-auto rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
+        class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
         @click="load()"
       >
         刷新
       </button>
-    </header>
+    </PageHeader>
 
     <main class="mx-auto max-w-3xl p-6">
-      <div v-if="loading" class="py-20 text-center text-gray-400">
-        加载中...
-      </div>
-      <div v-else-if="error" class="py-20 text-center text-red-400">
-        <p>{{ error }}</p>
-        <button
-          class="mt-4 rounded-lg bg-red-500/20 px-4 py-2 text-sm text-red-300 hover:bg-red-500/30"
-          @click="load()"
-        >
-          重试
-        </button>
-      </div>
-      <p v-else-if="!tasks.length" class="py-20 text-center text-gray-500">
-        暂无下载任务，可在书籍详情页点击「下载本书」
-      </p>
+      <StateBlock v-if="loading" type="loading" />
+      <StateBlock v-else-if="error" type="error" :message="error" @retry="load()" />
+      <StateBlock
+        v-else-if="!tasks.length"
+        type="empty"
+        message="暂无下载任务，可在书籍详情页点击「下载本书」"
+      />
 
       <div v-else class="space-y-3">
-        <div
-          v-for="task in tasks"
-          :key="task.id"
-          class="rounded-xl bg-[#1a1a1a] p-4"
-        >
+        <div v-for="task in tasks" :key="task.id" class="card p-4">
           <div class="flex items-center gap-3">
             <div class="min-w-0 flex-1">
               <p class="truncate font-medium">
                 {{ task.bookTitle || `本子 ${task.bookId}` }}
-                <span class="ml-2 text-xs text-gray-500">
+                <span class="ml-2 text-xs text-muted-soft">
                   第 {{ task.epsIndex + 1 }} 话{{
                     task.epsName ? ` · ${task.epsName}` : ""
                   }}
@@ -136,9 +118,7 @@ onBeforeUnmount(() => {
               </p>
               <p
                 class="mt-0.5 text-xs"
-                :class="
-                  task.status === 'error' ? 'text-red-400' : 'text-gray-500'
-                "
+                :class="task.status === 'error' ? 'text-error' : 'text-muted'"
               >
                 {{ STATUS_TEXT[task.status] }}
                 <span v-if="task.totalPages">
@@ -151,41 +131,36 @@ onBeforeUnmount(() => {
                 v-if="
                   task.status === 'downloading' || task.status === 'pending'
                 "
-                class="rounded-lg bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
+                class="rounded-md border border-hairline bg-canvas px-3 py-1 text-xs font-medium transition hover:bg-surface-soft"
                 @click="act(task, 'pause')"
               >
                 暂停
               </button>
               <button
                 v-if="task.status === 'paused'"
-                class="rounded-lg bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
+                class="rounded-md border border-hairline bg-canvas px-3 py-1 text-xs font-medium transition hover:bg-surface-soft"
                 @click="act(task, 'resume')"
               >
                 继续
               </button>
               <button
                 v-if="task.status === 'error'"
-                class="rounded-lg bg-white/10 px-3 py-1 text-xs hover:bg-white/20"
+                class="rounded-md border border-hairline bg-canvas px-3 py-1 text-xs font-medium transition hover:bg-surface-soft"
                 @click="act(task, 'retry')"
               >
                 重试
               </button>
-              <button
-                class="rounded-lg bg-red-500/10 px-3 py-1 text-xs text-red-300 hover:bg-red-500/20"
-                @click="remove(task)"
-              >
-                删除
-              </button>
+              <button class="btn-danger" @click="remove(task)">删除</button>
             </div>
           </div>
-          <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-strong">
             <div
               class="h-full rounded-full transition-all"
-              :class="task.status === 'error' ? 'bg-red-400' : 'bg-[#feca57]'"
+              :class="task.status === 'error' ? 'bg-error' : 'bg-brand-ochre'"
               :style="{ width: `${progressOf(task)}%` }"
             ></div>
           </div>
-          <p v-if="task.error" class="mt-2 text-xs text-red-400/80">
+          <p v-if="task.error" class="mt-2 text-xs text-error/80">
             {{ task.error }}
           </p>
         </div>
