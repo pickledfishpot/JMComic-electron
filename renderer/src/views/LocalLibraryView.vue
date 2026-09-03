@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { listLocal, scanLocal, type LocalBook } from "../api/local";
+import { assetUrl } from "../api/client";
 import PageHeader from "../components/PageHeader.vue";
 import BookCard from "../components/BookCard.vue";
 import StateBlock from "../components/StateBlock.vue";
@@ -37,7 +38,7 @@ async function rescan() {
 }
 
 function coverOf(book: LocalBook): string {
-  return `/api/local/images/${book.id}/0/0`;
+  return assetUrl(`/api/local/images/${book.id}/0/0`);
 }
 
 function openBook(book: LocalBook) {

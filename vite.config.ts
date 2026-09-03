@@ -15,6 +15,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Electron 主进程写死加载 5173，端口被占时必须直接失败而不是静默换端口
+    strictPort: true,
     proxy: {
       '/api': {
         target: `http://127.0.0.1:${BACKEND_PORT}`,

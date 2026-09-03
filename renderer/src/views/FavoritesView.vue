@@ -7,6 +7,7 @@ import {
   type FavoritesResponse,
 } from "../api/account";
 import { useUserStore } from "../stores/user";
+import { assetUrl } from "../api/client";
 import type { BookItem } from "../api/books";
 import PageHeader from "../components/PageHeader.vue";
 import BookCard from "../components/BookCard.vue";
@@ -112,7 +113,7 @@ onMounted(() => {
           <BookCard
             v-for="book in result.books"
             :key="book.id"
-            :cover="book.coverUrl"
+            :cover="assetUrl(book.coverUrl)"
             :title="book.title"
             @open="openBook(book)"
           >

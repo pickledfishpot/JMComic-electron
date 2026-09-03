@@ -89,6 +89,17 @@ function quitApp() {
   app.quit();
 }
 
+// Ctrl+C / SIGTERM 不会触发 before-quit，这里兜底保证后端子进程被回收
+function installSignalHandlers() {
+  const handler = () => {
+    if (quitting) return;
+    console.log("Received shutdown signal, quitting...");
+    quitApp();
+  };
+  process.on("SIGINT", handler);
+  process.on("SIGTERM", handler);
+}
+
 function createTray() {
   try {
     tray = new Tray(getTrayIconPath());
@@ -127,6 +138,9 @@ async function createMainWindow(): Promise<BrowserWindow> {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, "preload.js"),
+      // 把后端端口同步传给渲染层（preload 从 argv 读取并暴露），
+      // 使打包后（file:// 加载、无 vite 代理）API/图片地址能指向真实端口
+      additionalArguments: [`--jmcomic-backend-port=${backendPort}`],
     },
   });
 
@@ -145,9 +159,10 @@ async function createMainWindow(): Promise<BrowserWindow> {
     }
   });
 
-  // 关闭到托盘：点 X 隐藏，托盘/菜单退出才真正退出（quitting 时放行）
+  // 关闭到托盘：点 X 隐藏，托盘/菜单退出才真正退出（quitting 时放行）。
+  // 托盘创建失败（如 Linux 无托盘环境）时退化为正常关闭，避免应用变成不可见的僵尸进程
   win.on("close", (event) => {
-    if (!quitting) {
+    if (!quitting && tray) {
       event.preventDefault();
       saveWindowState(getDefaultDataDir(), win);
       win.hide();
@@ -201,6 +216,7 @@ if (!gotLock) {
   });
 
   app.on("ready", async () => {
+    installSignalHandlers();
     try {
       splashWindow = await createSplashWindow();
       await initializeBackend();
@@ -222,8 +238,8 @@ app.on("before-quit", async (event) => {
 });
 
 app.on("window-all-closed", () => {
-  // 关闭到托盘：窗口全关不退出（macOS 惯例也由托盘接管）
-  if (quitting && process.platform !== "darwin") {
+  // 关闭到托盘：窗口全关不退出（无托盘环境除外，否则没有任何途径召回窗口）
+  if (quitting || (!tray && process.platform !== "darwin")) {
     app.quit();
   }
 });
@@ -237,6 +253,10 @@ app.on("activate", async () => {
 });
 
 ipcMain.handle("open-external", async (_event, url: string) => {
+  // 只允许 http/https，防止借助 file:// 或自定义协议拉起本地处理器（RCE 向量）
+  if (!/^https?:\/\//i.test(String(url))) {
+    throw new Error(`Blocked open-external for non-http(s) URL: ${url}`);
+  }
   await shell.openExternal(url);
 });
 
@@ -246,8 +266,6 @@ ipcMain.handle("select-folder", async () => {
   });
   return result.canceled ? null : result.filePaths[0];
 });
-
-ipcMain.handle("get-backend-port", () => backendPort);
 
 // 渲染进程主动请求退出（如设置页"退出应用"）
 ipcMain.handle("quit-app", () => {

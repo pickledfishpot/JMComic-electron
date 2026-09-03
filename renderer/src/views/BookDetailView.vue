@@ -11,6 +11,7 @@ import {
 } from "../api/books";
 import { toggleFavorite } from "../api/account";
 import { startDownload } from "../api/downloads";
+import { assetUrl } from "../api/client";
 import { useUserStore } from "../stores/user";
 import PageHeader from "../components/PageHeader.vue";
 import StateBlock from "../components/StateBlock.vue";
@@ -124,7 +125,7 @@ watch(() => props.id, loadDetail, { immediate: true });
           <div class="w-full shrink-0 md:w-64">
             <div class="aspect-[3/4] overflow-hidden rounded-xl bg-surface-strong">
               <img
-                :src="book.coverUrl"
+                :src="assetUrl(book.coverUrl)"
                 :alt="book.title"
                 class="h-full w-full object-cover"
               />
@@ -246,7 +247,7 @@ watch(() => props.id, loadDetail, { immediate: true });
               <div class="flex items-start gap-3">
                 <img
                   v-if="comment.headUrl"
-                  :src="comment.headUrl"
+                  :src="assetUrl(comment.headUrl)"
                   class="h-10 w-10 rounded-full object-cover"
                 />
                 <div

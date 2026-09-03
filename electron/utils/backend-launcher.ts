@@ -79,6 +79,24 @@ export async function startBackend(
     windowsHide: true,
   });
 
+  // spawn 失败（venv 缺失 / 打包 exe 不存在等）会触发 'error' 事件；
+  // 没有监听器时它是未捕获异常，会直接崩掉主进程
+  let spawnReject: (err: Error) => void = () => {};
+  const spawnError = new Promise<never>((_resolve, reject) => {
+    spawnReject = reject;
+    const onSpawnError = (err: Error) => {
+      spawnReject(
+        new Error(
+          `Failed to spawn backend (${cmd}): ${err.message}。若发生在打包环境，请确认 backend_dist 与当前平台匹配。`,
+        ),
+      );
+    };
+    child.once("error", onSpawnError);
+    child.once("spawn", () => {
+      child.removeListener("error", onSpawnError);
+    });
+  });
+
   child.stderr?.on("data", (data: Buffer) => {
     console.error(`[backend stderr] ${data.toString("utf8")}`);
   });
@@ -87,32 +105,41 @@ export async function startBackend(
     console.log(`[backend stdout] ${data.toString("utf8")}`);
   });
 
-  return child;
+  // 竞速：spawn 成功则返回 child，失败则把错误抛给调用方走 splash 错误提示
+  return Promise.race([spawnError, Promise.resolve(child)]);
 }
 
 export async function stopBackend(child: ChildProcess | null): Promise<void> {
-  if (!child || child.killed) return;
+  if (!child) return;
 
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      if (!child.killed) {
-        if (process.platform === "win32") {
-          child.kill("SIGKILL");
-        } else {
-          try {
-            process.kill(-child.pid!, "SIGKILL");
-          } catch {
-            child.kill("SIGKILL");
-          }
-        }
-      }
-      resolve();
-    }, 5000);
-
-    child.on("exit", () => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timeout);
       resolve();
-    });
+    };
+    const timeout = setTimeout(() => {
+      if (process.platform === "win32") {
+        child.kill("SIGKILL");
+      } else {
+        try {
+          process.kill(-child.pid!, "SIGKILL");
+        } catch {
+          child.kill("SIGKILL");
+        }
+      }
+      done();
+    }, 5000);
+
+    // 以 exit 事件为准：child.killed 只表示信号已送达，进程可能仍在运行
+    child.once("exit", done);
+
+    if (child.exitCode !== null || child.signalCode !== null) {
+      done();
+      return;
+    }
 
     if (process.platform === "win32") {
       child.kill("SIGTERM");

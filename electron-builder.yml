@@ -26,6 +26,8 @@ win:
   icon: resources/icons/icon.ico
   target:
     - nsis
+    - portable
+    # - zip
 linux:
   icon: resources/icons/icon-256.png
   target:

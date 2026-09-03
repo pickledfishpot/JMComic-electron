@@ -8,6 +8,7 @@ import {
   watch,
 } from "vue";
 import { useRouter } from "vue-router";
+import { assetUrl } from "../api/client";
 import {
   getBookDetail,
   getEpsPages,
@@ -262,7 +263,7 @@ watch([currentPage, pages], () => {
     const page = pages.value[idx];
     if (page) {
       const img = new Image();
-      img.src = page.url;
+      img.src = assetUrl(page.url);
     }
   }
 });
@@ -447,7 +448,7 @@ onBeforeUnmount(() => {
       <img
         v-if="current"
         :key="pageKey(current)"
-        :src="current.url"
+        :src="assetUrl(current.url)"
         :alt="`第 ${currentPage + 1} 页`"
         class="absolute inset-0 m-auto max-h-full max-w-full object-contain"
         draggable="false"
@@ -505,7 +506,7 @@ onBeforeUnmount(() => {
           class="relative w-full"
         >
           <img
-            :src="page.url"
+            :src="assetUrl(page.url)"
             :alt="`第 ${page.index + 1} 页`"
             class="w-full object-contain"
             loading="lazy"

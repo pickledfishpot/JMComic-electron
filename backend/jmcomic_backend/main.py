@@ -28,7 +28,6 @@ from jmcomic_backend.api.routes import (
     images,
     index,
     local,
-    nas,
     search,
     settings,
     tools,
@@ -43,7 +42,6 @@ from jmcomic_backend.services.history_db import HistoryStore
 from jmcomic_backend.services.image_cache import ImageDiskCache
 from jmcomic_backend.services.jm_client import set_default_cookies, set_default_proxy
 from jmcomic_backend.services.local_library import LocalLibrary
-from jmcomic_backend.services.nas_manager import NasManager
 from jmcomic_backend.services.session import SessionManager
 
 
@@ -62,7 +60,6 @@ async def lifespan(app: FastAPI):
     app.state.downloads = DownloadManager(paths.db_dir / "app.db", paths.download_dir)
     await app.state.downloads.start()
     app.state.local_library = LocalLibrary()
-    app.state.nas = NasManager(paths.db_dir / "app.db")
     logging.info("JMComic backend starting, version=%s, data_dir=%s", VERSION, paths.data_dir)
     yield
     await app.state.downloads.stop()
@@ -77,11 +74,11 @@ def create_app(data_dir: Path) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS: only allow Electron origin and localhost during dev.
+    # CORS: dev 走 localhost；打包后渲染层从 file:// 加载，
+    # 会话完全在服务端（无 Cookie），本机单用户场景下放开 origin 限制即可
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "app://.*"],
-        allow_credentials=True,
+        allow_origin_regex=".*",
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -102,7 +99,6 @@ def create_app(data_dir: Path) -> FastAPI:
     app.include_router(downloads.router, prefix=API_PREFIX)
     app.include_router(images.router, prefix=API_PREFIX)
     app.include_router(local.router, prefix=API_PREFIX)
-    app.include_router(nas.router, prefix=API_PREFIX)
     app.include_router(tools.router, prefix=API_PREFIX)
     app.include_router(ws.router)
 

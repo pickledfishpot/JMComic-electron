@@ -12,7 +12,6 @@ from jmcomic_backend.services.download_manager import DownloadManager
 from jmcomic_backend.services.history_db import HistoryStore
 from jmcomic_backend.services.image_cache import ImageDiskCache
 from jmcomic_backend.services.local_library import LocalLibrary
-from jmcomic_backend.services.nas_manager import NasManager
 from jmcomic_backend.services.session import SessionManager
 
 
@@ -44,10 +43,6 @@ def get_local_library(request: Request) -> LocalLibrary:
     return request.app.state.local_library
 
 
-def get_nas_manager(request: Request) -> NasManager:
-    return request.app.state.nas
-
-
 AppPathsDep = Annotated[AppPaths, Depends(get_app_paths)]
 AppSettingsDep = Annotated[AppSettings, Depends(get_app_settings)]
 HistoryStoreDep = Annotated[HistoryStore, Depends(get_history_store)]
@@ -55,4 +50,3 @@ ImageCacheDep = Annotated[ImageDiskCache, Depends(get_image_cache)]
 SessionManagerDep = Annotated[SessionManager, Depends(get_session_manager)]
 DownloadManagerDep = Annotated[DownloadManager, Depends(get_download_manager)]
 LocalLibraryDep = Annotated[LocalLibrary, Depends(get_local_library)]
-NasManagerDep = Annotated[NasManager, Depends(get_nas_manager)]

@@ -2,6 +2,7 @@
 import { ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { searchBooks, type BookItem, type SearchResponse } from "../api/books";
+import { assetUrl } from "../api/client";
 import { useGoBack } from "../composables/useGoBack";
 import BookCard from "../components/BookCard.vue";
 import PillTabs from "../components/PillTabs.vue";
@@ -139,7 +140,7 @@ watch(
           <BookCard
             v-for="book in result.books"
             :key="book.id"
-            :cover="book.coverUrl"
+            :cover="assetUrl(book.coverUrl)"
             :title="book.title"
             :author="book.authorList.join(', ') || '未知作者'"
             @open="openBook(book)"

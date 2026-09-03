@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getIndex, type BookItem, type IndexResponse } from "../api/books";
 import { useUserStore } from "../stores/user";
+import { assetUrl } from "../api/client";
 import PageHeader from "../components/PageHeader.vue";
 import BookCard from "../components/BookCard.vue";
 import StateBlock from "../components/StateBlock.vue";
@@ -77,12 +78,6 @@ onMounted(() => {
       </button>
       <button
         class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
-        @click="go('/nas')"
-      >
-        NAS
-      </button>
-      <button
-        class="rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm font-medium transition hover:bg-surface-soft"
         @click="go('/tools')"
       >
         工具
@@ -132,7 +127,7 @@ onMounted(() => {
             <BookCard
               v-for="book in books"
               :key="book.id"
-              :cover="book.coverUrl"
+              :cover="assetUrl(book.coverUrl)"
               :title="book.title"
               :author="book.authorList.join(', ') || '未知作者'"
               @open="openBook(book)"

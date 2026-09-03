@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, assetUrl } from "./client";
 
 export interface UserInfo {
   uid: string;
@@ -70,7 +70,7 @@ export function getMe(): Promise<{ user: UserInfo | null }> {
 }
 
 export function getCaptchaUrl(): string {
-  return `/api/auth/captcha?t=${Date.now()}`;
+  return assetUrl(`/api/auth/captcha?t=${Date.now()}`);
 }
 
 export function register(

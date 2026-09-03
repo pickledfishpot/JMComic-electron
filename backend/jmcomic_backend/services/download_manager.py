@@ -257,7 +257,7 @@ class DownloadManager:
         return self._download_dir / str(book_id) / f"{eps_index + 1:03d}"
 
     def book_dir(self, book_id: str) -> Path:
-        """整本书的下载目录（NAS 上传等场景用）."""
+        """整本书的下载目录（按 book_id 定位已下载内容）."""
         return self._download_dir / str(book_id)
 
     def _rmtree(self, path: Path) -> None:

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { assetUrl } from "../api/client";
 import {
   getCategories,
   getCategoryBooks,
@@ -112,7 +113,7 @@ onMounted(() => {
           <BookCard
             v-for="book in booksResult.books"
             :key="book.id"
-            :cover="book.coverUrl"
+            :cover="assetUrl(book.coverUrl)"
             :title="book.title"
             :author="book.authorList.join(', ') || '未知作者'"
             @open="openBook(book)"

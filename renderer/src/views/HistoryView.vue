@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getHistory, removeHistory, type HistoryItem } from "../api/account";
+import { assetUrl } from "../api/client";
 import PageHeader from "../components/PageHeader.vue";
 import StateBlock from "../components/StateBlock.vue";
 
@@ -12,7 +13,7 @@ const items = ref<HistoryItem[]>([]);
 const total = ref(0);
 
 function coverOf(bookId: string): string {
-  return `/api/images/media/albums/${bookId}_3x4.jpg`;
+  return assetUrl(`/api/images/media/albums/${bookId}_3x4.jpg`);
 }
 
 function formatTime(ts: number): string {
