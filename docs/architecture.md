@@ -87,8 +87,8 @@ JMComic-electron/
 │       ├── stores/             # Pinia: user, settings, downloads, reader
 │       ├── types/              # Book, User, Eps, Settings 类型
 │       └── styles/
-├── python/
-│   ├── pyproject.toml / requirements.txt
+├── backend/
+│   ├── pyproject.toml
 │   └── jmcomic_backend/
 │       ├── main.py             # FastAPI lifespan + uvicorn 入口
 │       ├── api/
@@ -175,8 +175,8 @@ JMComic-electron/
 - `POST /api/books/{book_id}/comments`
 
 ### 5.5 图片
+- `GET /api/images/{path:path}` → 代理远端图床图片，返回原始字节
 - `POST /api/images/fetch` → 返回 `{imageId, contentType, width, height}`
-- `GET /api/images/{imageId}` → 原始字节
 - `POST /api/images/descramble`
 - `DELETE /api/images/{imageId}`
 
@@ -239,7 +239,7 @@ JMComic-electron/
 
 | 原文件 | 新位置 | 改造 |
 |---|---|---|
-| `src/server/req.py` | `services/jm_client.py` | 移除 `QtOwner().cookie`，改为注入 cookies |
+| `src/server/req.py` | `services/jm_client.py` | 移除 `QtOwner().cookie`，复用 `jmcomic.JmCryptoTool` 生成 token 与解密响应 |
 | `src/server/server.py` | `services/request_dispatcher.py` | 队列池改为 asyncio + ThreadPoolExecutor，signal 改事件总线 |
 | `src/server/res.py` + `user_handler.py` | `services/response_handlers.py` | `pickle.dumps` 改为 dict 返回 |
 | `src/tools/book.py` | `core/book.py` | 添加 `to_dict()` |
@@ -264,8 +264,13 @@ JMComic-electron/
 
 | 阶段 | 重点 | 产出 |
 |---|---|---|
-| **0. 脚手架** | Vite+React+Electron、FastAPI、IPC、健康检查屏 | 应用启动并连接后端 |
-| **1. 网络与浏览** | 移植 req.py/server.py，首页/搜索/分类/书籍详情/评论 | 浏览可用 |
+| **0. 脚手架** ✅ | Vite+Vue3+Electron、FastAPI、IPC、健康检查屏 | 应用启动并连接后端 |
+| **1. 最小闭环** ✅ | 移植 req.py/server.py/tool.py，首页推荐/书籍详情/封面图代理 | 可浏览首页与书籍详情 |
+| **2. 搜索与分类** | 搜索/分类/评论 | 浏览可用 |
+| **3. 阅读器** | 图片拉取/反分割、阅读模式、快捷键、历史写入 | 可流畅阅读 |
+| **4. 用户/收藏/下载** | 登录/注册/验证码、收藏/历史、下载队列+DB | 下载可持久化 |
+| **5. 超分/本地/NAS/工具** | Waifu2x、本地图库、NAS 上传、代理/DNS 工具 | 高级功能完成 |
+| **6. 原生外壳与打包** | 托盘、单实例、对话框、主题、安装包 | 三平台安装包 |
 | **2. 阅读器** | 图片拉取/反分割、阅读模式、快捷键、历史写入 | 可流畅阅读 |
 | **3. 用户/收藏/下载** | 登录/注册/验证码、收藏/历史、下载队列+DB | 下载可持久化 |
 | **4. 超分/本地/NAS/工具** | Waifu2x、本地图库、NAS 上传、代理/DNS 工具 | 高级功能完成 |

@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from jmcomic_backend.api import deps
-from jmcomic_backend.api.routes import health, settings
+from jmcomic_backend.api.routes import books, health, images, index, settings
 from jmcomic_backend.api import ws
 from jmcomic_backend.core.config import API_PREFIX, DEFAULT_PORT, VERSION
 from jmcomic_backend.core.logging import configure_logging
@@ -55,6 +55,9 @@ def create_app(data_dir: Path) -> FastAPI:
 
     app.include_router(health.router, prefix=API_PREFIX)
     app.include_router(settings.router, prefix=API_PREFIX)
+    app.include_router(index.router, prefix=API_PREFIX)
+    app.include_router(books.router, prefix=API_PREFIX)
+    app.include_router(images.router, prefix=API_PREFIX)
     app.include_router(ws.router)
 
     return app
