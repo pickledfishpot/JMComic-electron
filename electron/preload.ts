@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer } from "electron";
 
 export interface ElectronAPI {
   platform: string;
@@ -9,7 +9,10 @@ export interface ElectronAPI {
   };
   openExternal: (url: string) => Promise<void>;
   selectFolder: () => Promise<string | null>;
-  onBackendState: (callback: (state: { type: string; message: string }) => void) => () => void;
+  quitApp: () => Promise<void>;
+  onBackendState: (
+    callback: (state: { type: string; message: string }) => void,
+  ) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -20,22 +23,27 @@ const api: ElectronAPI = {
     electron: process.versions.electron,
   },
   openExternal: async (url: string) => {
-    await ipcRenderer.invoke('open-external', url);
+    await ipcRenderer.invoke("open-external", url);
   },
   selectFolder: async () => {
-    return ipcRenderer.invoke('select-folder');
+    return ipcRenderer.invoke("select-folder");
+  },
+  quitApp: async () => {
+    await ipcRenderer.invoke("quit-app");
   },
   onBackendState: (callback) => {
-    const handler = (_event: unknown, state: { type: string; message: string }) =>
-      callback(state);
-    ipcRenderer.on('backend-state', handler);
+    const handler = (
+      _event: unknown,
+      state: { type: string; message: string },
+    ) => callback(state);
+    ipcRenderer.on("backend-state", handler);
     return () => {
-      ipcRenderer.removeListener('backend-state', handler);
+      ipcRenderer.removeListener("backend-state", handler);
     };
   },
 };
 
-contextBridge.exposeInMainWorld('electronAPI', api);
+contextBridge.exposeInMainWorld("electronAPI", api);
 
 declare global {
   interface Window {

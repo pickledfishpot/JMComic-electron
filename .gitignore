@@ -36,6 +36,8 @@ yarn-error.log*
 # Runtime data
 backend_dist/
 python_dist/
+backend/build/
+backend/jmcomic_backend.spec
 
 # OS
 .DS_Store

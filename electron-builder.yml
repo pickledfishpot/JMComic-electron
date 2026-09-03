@@ -1,7 +1,6 @@
 appId: cc.jpacg.jmcomic-electron
 productName: JMComic
 copyright: Copyright © 2026
-# Electron builder configuration for packaging
 directories:
   output: dist/installers
   buildResources: resources
@@ -13,18 +12,26 @@ extraResources:
   - from: backend_dist
     to: backend_dist
     filter:
-      - '**/*'
+      - "**/*"
+  - from: resources/icons
+    to: icons
+    filter:
+      - "tray*.png"
 mac:
   category: public.app-category.entertainment
+  icon: resources/icons/icon.icns
   target:
     - dmg
 win:
+  icon: resources/icons/icon.ico
   target:
     - nsis
 linux:
+  icon: resources/icons/icon-256.png
   target:
     - AppImage
     - deb
+  category: Amusement
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

@@ -26,9 +26,19 @@ pnpm test           # 后端 pytest
 pnpm build          # 构建 electron 主进程 + 渲染层
 ```
 
+## 打包
+
+```bash
+pnpm dist:mac       # macOS dmg
+pnpm dist:win       # Windows nsis
+pnpm dist:linux     # Linux AppImage/deb
+```
+
+流程：`build` → `build:backend`（PyInstaller 把 FastAPI 打成 onedir 到 `backend_dist/`）→ electron-builder 通过 `extraResources` 把 `backend_dist` 与托盘图标打进安装包。
+
 ## 功能与进度
 
-Phase 0-5 已完成：浏览/搜索/分类/评论 → 阅读器（反分割、翻页/滚动、进度恢复）→ 登录/收藏/历史/下载队列 → 本地图库（离线阅读）/NAS 上传/代理/DNS 工具。详见 [`docs/architecture.md`](docs/architecture.md)。
+Phase 0-6 全部完成：浏览/搜索/分类/评论 → 阅读器（反分割、翻页/滚动、进度恢复）→ 登录/收藏/历史/下载队列 → 本地图库（离线阅读）/NAS 上传/代理/DNS 工具 → 单实例/托盘/窗口状态持久化/三平台安装包。详见 [`docs/architecture.md`](docs/architecture.md)。
 
 ## 参考项目
 

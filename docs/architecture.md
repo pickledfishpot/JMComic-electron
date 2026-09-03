@@ -255,10 +255,12 @@ JMComic-electron/
 
 ## 8. 打包策略
 
-1. **Python 后端**：PyInstaller `onedir` 模式，隐藏导入 `curl_cffi`、`jmcomic`、`PIL`、`lxml`、`natsort`、`pycryptodomex`、`sr_vulkan`、`sr_vulkan_model_*`、`webdavclient3`、`pysmb`、`smbprotocol`，并打包 `lib/` 原生库。
-2. **Electron**：`electron-builder.yml` 配置 `extraResources` 把 Python 产物放入 `backend/`。
-3. **运行时**：Electron 主进程找空闲端口，启动后端可执行文件并传入 `--port` 和 `--data-dir`，等待 `/api/health` 后加载渲染进程，退出时 SIGTERM/SIGKILL 结束后端。
-4. **目标**：Windows nsis、macOS dmg、Linux AppImage/deb。
+1. **Python 后端**：`scripts/build-backend.mjs` 调用 `backend/.venv` 里的 PyInstaller 6 `onedir` 模式，入口 `backend/pyinstaller_entry.py`；`--collect-all jmcomic curl_cffi` 收集数据文件与原生库，显式 hidden-import uvicorn 各协议子模块 / pydantic_settings / yaml；产物落 `backend_dist/jmcomic_backend/`（约 61MB），并删除 `lib2to3`/`tkinter` 等无用目录。已验证：冻结尾启动、health、jmcomic AES 解密请求真实 JM API 均正常。
+2. **Electron**：`electron-builder.yml` 配置 `extraResources` 把 `backend_dist` 整体放入 `resources/backend_dist`；三平台图标在 `resources/icons/`（icns/ico/png，Pillow 脚本生成）。
+3. **运行时**：Electron 主进程找空闲端口，启动后端可执行文件并传入 `--port` 和 `--data-dir`（开发模式走 `python -m`，打包模式直接跑冻结尾），等待 `/api/health` 后加载渲染进程，退出时 SIGTERM/SIGKILL 进程组结束后端。
+4. **原生外壳**：单实例锁（`requestSingleInstanceLock` + second-instance 聚焦）、系统托盘（关闭到托盘，托盘菜单退出，窗口状态持久化到 `window-state.json`）。
+5. **目标**：Windows nsis、macOS dmg、Linux AppImage/deb（`pnpm dist:mac|win|linux`）。
+6. **注意**：pnpm 11 的 overrides 需写在 `pnpm-workspace.yaml`（`@electron/get` 需 ^3.1.0，否则 electron-builder 报 `ElectronDownloadCacheMode` undefined）。
 
 ## 9. 实施阶段
 
@@ -270,7 +272,7 @@ JMComic-electron/
 | **3. 阅读器** ✅ | 图片拉取/反分割（PIL 移植 tool.py）、翻页/滚动模式、快捷键、进度条、阅读历史 SQLite | 可流畅阅读，进度可恢复 |
 | **4. 用户/收藏/下载** ✅ | 登录/注册/验证码、cookie 会话持久化、收藏列表与切换、本地历史、下载队列（SQLite + 反分割落盘 + 暂停/重试） | 下载可持久化 |
 | **5. 超分/本地/NAS/工具** ✅ | 本地图库（目录本/zip 扫描 + 离线阅读 + 独立进度）、代理接入 JmClient + 代理测试/DNS 工具、Waifu2x 懒加载探测（不可用时隐藏）、NAS 配置 CRUD + WebDAV/本地备份上传 | 高级功能完成 |
-| **6. 原生外壳与打包** | 托盘、单实例、对话框、主题、安装包 | 三平台安装包 |
+| **6. 原生外壳与打包** ✅ | 单实例锁、系统托盘（关闭到托盘）、窗口状态持久化、Pillow 生成三平台图标、PyInstaller 后端打包（冻结尾已验证）、electron-builder dmg/nsis/AppImage | 三平台安装包 |
 
 ## 10. 主要风险与缓解
 
