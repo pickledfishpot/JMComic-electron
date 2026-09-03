@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
 import {
   listDownloads,
   pauseDownload,
@@ -9,8 +8,9 @@ import {
   retryDownload,
   type DownloadTask,
 } from "../api/downloads";
+import { useGoBack } from "../composables/useGoBack";
 
-const router = useRouter();
+const goBack = useGoBack();
 const tasks = ref<DownloadTask[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -70,10 +70,6 @@ function progressOf(task: DownloadTask): number {
   return task.totalPages > 0
     ? Math.round((task.donePages / task.totalPages) * 100)
     : 0;
-}
-
-function goBack() {
-  router.back();
 }
 
 onMounted(() => {

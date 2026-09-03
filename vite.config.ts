@@ -1,11 +1,12 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
 
 const BACKEND_PORT = Number(process.env.JMCOMIC_BACKEND_PORT) || 8000;
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), tailwindcss()],
   root: path.resolve(__dirname, 'renderer'),
   publicDir: path.resolve(__dirname, 'renderer/public'),
   build: {

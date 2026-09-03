@@ -8,8 +8,10 @@ import {
   type Category,
   type CategoryBooksResponse,
 } from "../api/books";
+import { useGoBack } from "../composables/useGoBack";
 
 const router = useRouter();
+const goBack = useGoBack();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -67,7 +69,7 @@ onMounted(() => {
     <header
       class="sticky top-0 z-10 flex items-center gap-3 border-b border-white/10 bg-[#0f0f0f]/90 px-4 py-3 backdrop-blur"
     >
-      <button class="rounded-lg p-2 hover:bg-white/10" @click="router.back()">
+      <button class="rounded-lg p-2 hover:bg-white/10" @click="goBack">
         ← 返回
       </button>
       <h1 class="text-base font-bold">分类</h1>

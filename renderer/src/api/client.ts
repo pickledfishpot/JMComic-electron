@@ -31,9 +31,14 @@ export async function apiFetch<T = unknown>(path: string, options: RequestInit =
     error.status = response.status
     error.statusText = response.statusText
     try {
-      error.body = await response.json()
+      const text = await response.text()
+      try {
+        error.body = JSON.parse(text)
+      } catch {
+        error.body = text
+      }
     } catch {
-      error.body = await response.text()
+      // body 无法读取时忽略
     }
     throw error
   }

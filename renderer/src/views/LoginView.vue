@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
 import { useUserStore } from "../stores/user";
 import { getCaptchaUrl, register } from "../api/account";
+import { useGoBack } from "../composables/useGoBack";
 
-const router = useRouter();
 const userStore = useUserStore();
+const goBack = useGoBack();
 
 const tab = ref<"login" | "register">("login");
 
@@ -32,7 +32,7 @@ async function submitLogin() {
   notice.value = null;
   try {
     await userStore.login(username.value, password.value);
-    router.back();
+    goBack();
   } catch (err) {
     error.value = String(err);
   } finally {
@@ -67,10 +67,6 @@ async function submitRegister() {
   } finally {
     loading.value = false;
   }
-}
-
-function goBack() {
-  router.back();
 }
 
 onMounted(() => {

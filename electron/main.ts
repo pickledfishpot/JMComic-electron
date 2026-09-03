@@ -166,7 +166,9 @@ async function createMainWindow(): Promise<BrowserWindow> {
 
 async function initializeBackend() {
   const dataDir = getDefaultDataDir();
-  backendPort = await findFreePort();
+  // 开发模式下由 dev 脚本指定固定端口，保证与 vite 代理一致
+  const envPort = process.env.JMCOMIC_BACKEND_PORT;
+  backendPort = envPort ? Number(envPort) : await findFreePort();
 
   sendBackendState("starting", `正在启动后端服务 (端口 ${backendPort})...`);
 

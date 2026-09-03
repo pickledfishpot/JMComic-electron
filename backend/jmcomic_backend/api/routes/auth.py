@@ -71,7 +71,11 @@ async def logout(request: Request) -> dict[str, bool]:
 @router.get("/me")
 async def get_me(request: Request) -> dict[str, Any]:
     session = request.app.state.session.get()
-    return {"user": session.public_dict() if session else None}
+    # 只有验证码 cookie 的匿名会话（uid 为空）不算登录
+    user = session.public_dict() if session else None
+    if user is not None and not user.get("uid"):
+        user = None
+    return {"user": user}
 
 
 @router.get("/captcha")

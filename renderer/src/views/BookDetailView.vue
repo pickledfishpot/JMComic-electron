@@ -12,6 +12,7 @@ import {
 import { toggleFavorite } from "../api/account";
 import { startDownload } from "../api/downloads";
 import { useUserStore } from "../stores/user";
+import { useGoBack } from "../composables/useGoBack";
 
 const props = defineProps<{ id: string }>();
 const router = useRouter();
@@ -64,9 +65,7 @@ async function loadComments(page = 1) {
   }
 }
 
-function goBack() {
-  router.back();
-}
+const goBack = useGoBack();
 
 function startReading(epsIndex?: number) {
   const idx = epsIndex ?? progress.value?.epsIndex ?? 0;
@@ -75,7 +74,8 @@ function startReading(epsIndex?: number) {
 
 async function toggleFav() {
   if (!userStore.user) {
-    router.push("/login");
+    // 用 replace 避免「详情 → 登录 → 返回」形成回退循环
+    router.replace("/login");
     return;
   }
   if (!book.value) return;

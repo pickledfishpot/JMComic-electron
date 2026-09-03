@@ -2,8 +2,10 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getHistory, removeHistory, type HistoryItem } from "../api/account";
+import { useGoBack } from "../composables/useGoBack";
 
 const router = useRouter();
+const goBack = useGoBack();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const items = ref<HistoryItem[]>([]);
@@ -42,10 +44,6 @@ function openBook(item: HistoryItem) {
 
 function continueReading(item: HistoryItem) {
   router.push(`/read/${item.bookId}/${item.epsIndex}`);
-}
-
-function goBack() {
-  router.back();
 }
 
 onMounted(load);

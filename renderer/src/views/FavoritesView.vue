@@ -7,10 +7,12 @@ import {
   type FavoritesResponse,
 } from "../api/account";
 import { useUserStore } from "../stores/user";
+import { useGoBack } from "../composables/useGoBack";
 import type { BookItem } from "../api/books";
 
 const router = useRouter();
 const userStore = useUserStore();
+const goBack = useGoBack();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -57,13 +59,10 @@ async function removeFavorite(book: BookItem) {
   }
 }
 
-function goBack() {
-  router.back();
-}
-
 onMounted(() => {
   if (!userStore.user) {
-    router.push("/login");
+    // 用 replace 避免「收藏 → 登录 → 返回」形成回退循环
+    router.replace("/login");
     return;
   }
   load(1);

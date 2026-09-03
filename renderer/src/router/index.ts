@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from "vue-router";
+import { createRouter, createWebHashHistory, type RouteLocationNormalized } from "vue-router";
 import HomeView from "../views/HomeView.vue";
 import BookDetailView from "../views/BookDetailView.vue";
 import SearchView from "../views/SearchView.vue";
@@ -31,7 +31,7 @@ const routes = [
     path: "/local/read/:bookId/:epsIndex?",
     name: "local-read",
     component: ReadView,
-    props: (route) => ({
+    props: (route: RouteLocationNormalized) => ({
       bookId: route.params.bookId,
       epsIndex: route.params.epsIndex,
       local: "1",

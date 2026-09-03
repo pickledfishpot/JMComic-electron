@@ -10,7 +10,8 @@ export const useUserStore = defineStore("user", () => {
   async function fetchMe() {
     try {
       const res = await getMe();
-      user.value = res.user;
+      // 防御：后端异常返回空壳用户时视为未登录
+      user.value = res.user?.username ? res.user : null;
     } catch {
       user.value = null;
     } finally {
