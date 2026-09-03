@@ -256,6 +256,10 @@ class DownloadManager:
     def _eps_dir(self, book_id: str, eps_index: int) -> Path:
         return self._download_dir / str(book_id) / f"{eps_index + 1:03d}"
 
+    def book_dir(self, book_id: str) -> Path:
+        """整本书的下载目录（NAS 上传等场景用）."""
+        return self._download_dir / str(book_id)
+
     def _rmtree(self, path: Path) -> None:
         import shutil
 

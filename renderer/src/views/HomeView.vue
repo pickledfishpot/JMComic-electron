@@ -72,6 +72,30 @@ onMounted(() => {
         </button>
         <button
           class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
+          @click="go('/local')"
+        >
+          本地
+        </button>
+        <button
+          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
+          @click="go('/nas')"
+        >
+          NAS
+        </button>
+        <button
+          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
+          @click="go('/tools')"
+        >
+          工具
+        </button>
+        <button
+          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
+          @click="go('/settings')"
+        >
+          设置
+        </button>
+        <button
+          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
           @click="goCategories"
         >
           分类

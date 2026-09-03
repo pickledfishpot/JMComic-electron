@@ -27,8 +27,11 @@ from jmcomic_backend.api.routes import (
     history,
     images,
     index,
+    local,
+    nas,
     search,
     settings,
+    tools,
 )
 from jmcomic_backend.api import ws
 from jmcomic_backend.core.config import API_PREFIX, DEFAULT_PORT, VERSION
@@ -38,7 +41,9 @@ from jmcomic_backend.core.settings import AppSettings
 from jmcomic_backend.services.download_manager import DownloadManager
 from jmcomic_backend.services.history_db import HistoryStore
 from jmcomic_backend.services.image_cache import ImageDiskCache
-from jmcomic_backend.services.jm_client import set_default_cookies
+from jmcomic_backend.services.jm_client import set_default_cookies, set_default_proxy
+from jmcomic_backend.services.local_library import LocalLibrary
+from jmcomic_backend.services.nas_manager import NasManager
 from jmcomic_backend.services.session import SessionManager
 
 
@@ -52,8 +57,12 @@ async def lifespan(app: FastAPI):
     app.state.session = SessionManager(paths.data_dir / "session.json")
     session = app.state.session.get()
     set_default_cookies(session.cookies if session else {})
+    proxy = app.state.settings.proxy
+    set_default_proxy(proxy.effective_url() if proxy.enabled else "")
     app.state.downloads = DownloadManager(paths.db_dir / "app.db", paths.download_dir)
     await app.state.downloads.start()
+    app.state.local_library = LocalLibrary()
+    app.state.nas = NasManager(paths.db_dir / "app.db")
     logging.info("JMComic backend starting, version=%s, data_dir=%s", VERSION, paths.data_dir)
     yield
     await app.state.downloads.stop()
@@ -92,6 +101,9 @@ def create_app(data_dir: Path) -> FastAPI:
     app.include_router(history.router, prefix=API_PREFIX)
     app.include_router(downloads.router, prefix=API_PREFIX)
     app.include_router(images.router, prefix=API_PREFIX)
+    app.include_router(local.router, prefix=API_PREFIX)
+    app.include_router(nas.router, prefix=API_PREFIX)
+    app.include_router(tools.router, prefix=API_PREFIX)
     app.include_router(ws.router)
 
     return app

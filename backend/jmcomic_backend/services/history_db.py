@@ -90,14 +90,15 @@ class HistoryStore:
     def list_history(
         self, limit: int = 50, offset: int = 0
     ) -> dict[str, Any]:
-        """按最近阅读时间倒序返回历史条目."""
+        """按最近阅读时间倒序返回历史条目（不含 local: 前缀的本地图库进度）."""
         with self._lock:
             total = self._conn.execute(
-                "SELECT COUNT(*) FROM read_history"
+                "SELECT COUNT(*) FROM read_history WHERE book_id NOT LIKE 'local:%'"
             ).fetchone()[0]
             rows = self._conn.execute(
                 "SELECT book_id, title, eps_index, page_index, updated_at "
-                "FROM read_history ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+                "FROM read_history WHERE book_id NOT LIKE 'local:%' "
+                "ORDER BY updated_at DESC LIMIT ? OFFSET ?",
                 (limit, offset),
             ).fetchall()
         return {

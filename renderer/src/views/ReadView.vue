@@ -17,12 +17,25 @@ import {
   type EpsPage,
   type ReadingProgress,
 } from "../api/books";
+import {
+  getLocalBook,
+  getLocalPages,
+  getLocalProgress,
+  saveLocalProgress,
+  type LocalBook,
+  type LocalPage,
+} from "../api/local";
 
-const props = defineProps<{ bookId: string; epsIndex?: string }>();
+const props = defineProps<{
+  bookId: string;
+  epsIndex?: string;
+  local?: string;
+}>();
 const router = useRouter();
+const isLocal = computed(() => props.local === "1");
 
-const book = ref<BookDetail | null>(null);
-const pages = ref<EpsPage[]>([]);
+const book = ref<BookDetail | LocalBook | null>(null);
+const pages = ref<EpsPage[] | LocalPage[]>([]);
 const epsIndex = ref(0);
 const currentPage = ref(0);
 const loading = ref(true);
@@ -65,12 +78,18 @@ async function loadPages(index: number, startPage = 0) {
   pagesLoading.value = true;
   error.value = null;
   try {
-    const resp = await getEpsPages(props.bookId, index);
+    const resp = isLocal.value
+      ? await getLocalPages(props.bookId, index)
+      : await getEpsPages(props.bookId, index);
     pages.value = resp.pages;
     epsIndex.value = resp.epsIndex;
     currentPage.value = Math.min(Math.max(startPage, 0), resp.pages.length - 1);
     failedPages.value = new Map();
-    router.replace(`/read/${props.bookId}/${resp.epsIndex}`);
+    router.replace(
+      isLocal.value
+        ? `/local/read/${props.bookId}/${resp.epsIndex}`
+        : `/read/${props.bookId}/${resp.epsIndex}`,
+    );
   } catch (err) {
     error.value = String(err);
   } finally {
@@ -84,7 +103,7 @@ async function switchEps(index: number) {
 }
 
 function goBack() {
-  router.push(`/book/${props.bookId}`);
+  router.push(isLocal.value ? "/local" : `/book/${props.bookId}`);
 }
 
 function nextPage() {
@@ -248,30 +267,37 @@ watch([currentPage, pages], () => {
   }
 });
 
+function saveProgress() {
+  if (isLocal.value) {
+    return saveLocalProgress(
+      props.bookId,
+      epsIndex.value,
+      currentPage.value,
+      book.value?.title,
+    );
+  }
+  return saveReadingProgress(
+    props.bookId,
+    epsIndex.value,
+    currentPage.value,
+    book.value?.title,
+  );
+}
+
 /* ---------------- 阅读进度保存（防抖） ---------------- */
 
 watch([epsIndex, currentPage], () => {
   if (totalPages.value === 0) return;
   clearTimeout(progressTimer);
   progressTimer = setTimeout(() => {
-    saveReadingProgress(
-      props.bookId,
-      epsIndex.value,
-      currentPage.value,
-      book.value?.title,
-    ).catch(() => {});
+    saveProgress().catch(() => {});
   }, 800);
 });
 
 function flushProgress() {
   clearTimeout(progressTimer);
   if (totalPages.value > 0) {
-    saveReadingProgress(
-      props.bookId,
-      epsIndex.value,
-      currentPage.value,
-      book.value?.title,
-    ).catch(() => {});
+    saveProgress().catch(() => {});
   }
 }
 
@@ -297,18 +323,22 @@ onMounted(async () => {
   showToolbar();
   window.addEventListener("keydown", onKeyDown);
   try {
-    const detail = await getBookDetail(props.bookId);
-    book.value = detail;
+    book.value = isLocal.value
+      ? await getLocalBook(props.bookId)
+      : await getBookDetail(props.bookId);
 
     let index =
       props.epsIndex !== undefined ? Number.parseInt(props.epsIndex, 10) : NaN;
     let progress: ReadingProgress | null = null;
     if (Number.isNaN(index)) {
-      const res = await getReadingProgress(props.bookId);
+      const res = isLocal.value
+        ? await getLocalProgress(props.bookId)
+        : await getReadingProgress(props.bookId);
       progress = res.progress;
       index = progress?.epsIndex ?? 0;
     }
-    index = Math.min(Math.max(index, 0), detail.eps.length - 1);
+    const epsCount = book.value.eps.length;
+    index = Math.min(Math.max(index, 0), epsCount - 1);
     epsIndex.value = index;
     await loadPages(
       index,

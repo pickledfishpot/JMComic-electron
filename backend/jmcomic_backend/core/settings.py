@@ -21,6 +21,13 @@ class ProxySettings(BaseModel):
     https: str = ""
     socks5: str = ""
 
+    def effective_url(self) -> str:
+        """当前生效的代理地址（按 http/https/socks5 顺序取第一个非空）."""
+        for candidate in (self.http, self.https, self.socks5):
+            if candidate.strip():
+                return candidate.strip()
+        return ""
+
 
 class NetworkSettings(BaseModel):
     api_timeout: int = Field(default=10, ge=1, le=300)
@@ -35,12 +42,19 @@ class ReaderSettings(BaseModel):
     look_scale: int = Field(default=2, ge=1, le=4)
 
 
+class LocalSettings(BaseModel):
+    """本地图库：额外扫描目录（downloads 始终包含）."""
+
+    dirs: list[str] = Field(default_factory=list)
+
+
 class AppSettings(BaseModel):
     theme: Literal["system", "light", "dark"] = "system"
     language: str = "zh-CN"
     proxy: ProxySettings = ProxySettings()
     network: NetworkSettings = NetworkSettings()
     reader: ReaderSettings = ReaderSettings()
+    local: LocalSettings = LocalSettings()
 
     @classmethod
     def load_from_file(cls, path: Path) -> "AppSettings":

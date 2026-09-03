@@ -46,11 +46,20 @@ RETRY_DELAY_SECONDS = 1.0
 # 登录态 cookies：单用户桌面应用，登录后由 SessionManager 写入默认 cookies
 _default_cookies: dict[str, str] = {}
 
+# 代理：由设置页配置后写入，新建的 JmClient 自动携带
+_default_proxy: str = ""
+
 
 def set_default_cookies(cookies: dict[str, str]) -> None:
     """设置全局默认 cookies，新建的 JmClient 自动携带."""
     global _default_cookies
     _default_cookies = dict(cookies)
+
+
+def set_default_proxy(proxy_url: str) -> None:
+    """设置全局默认代理（http(s):// 或 socks5(h)://），空串表示直连."""
+    global _default_proxy
+    _default_proxy = proxy_url.strip()
 
 
 class JmApiError(Exception):
@@ -342,9 +351,14 @@ class JmClient:
         self.api_index = api_index
         self.img_index = img_index
         self._cookies = dict(cookies) if cookies is not None else dict(_default_cookies)
+        mounts: dict[str, httpx.AsyncHTTPTransport] | None = None
+        if _default_proxy:
+            transport = httpx.AsyncHTTPTransport(proxy=_default_proxy)
+            mounts = {"http://": transport, "https://": transport}
         self._client = httpx.AsyncClient(
             timeout=DEFAULT_TIMEOUT,
             follow_redirects=True,
+            mounts=mounts,
         )
 
     async def close(self) -> None:
