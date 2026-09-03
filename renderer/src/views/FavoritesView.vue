@@ -24,21 +24,25 @@ const sort = ref("mr");
 const folderId = ref("0");
 const page = ref(1);
 const message = ref<string | null>(null);
+// 收藏请求序号：翻页/筛选快速变化时，仅采纳最新一次响应
+let favReqSeq = 0;
 
 async function load(nextPage = 1) {
+  const seq = ++favReqSeq;
   loading.value = true;
   error.value = null;
   try {
     const res = await getFavorites(nextPage, sort.value, folderId.value);
+    if (seq !== favReqSeq) return; // 过期响应
     result.value =
       nextPage > 1 && result.value
         ? { ...res, books: [...result.value.books, ...res.books] }
         : res;
     page.value = nextPage;
   } catch (err) {
-    error.value = String(err);
+    if (seq === favReqSeq) error.value = String(err);
   } finally {
-    loading.value = false;
+    if (seq === favReqSeq) loading.value = false;
   }
 }
 
@@ -62,7 +66,11 @@ async function removeFavorite(book: BookItem) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 等待会话探测完成再判定登录，避免慢网络下误跳登录页
+  if (!userStore.loaded) {
+    await userStore.fetchMe();
+  }
   if (!userStore.user) {
     // 用 replace 避免「收藏 → 登录 → 返回」形成回退循环
     router.replace("/login");

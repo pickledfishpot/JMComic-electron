@@ -18,6 +18,8 @@ const sort = ref(String(route.query.sort || "mr"));
 const loading = ref(false);
 const error = ref<string | null>(null);
 const result = ref<SearchResponse | null>(null);
+// 搜索请求序号：关键词/页码快速变化时，仅采纳最新一次响应
+let searchReqSeq = 0;
 
 const sortOptions = [
   { value: "mr", label: "最新" },
@@ -31,18 +33,21 @@ async function loadSearch() {
     result.value = null;
     return;
   }
+  const seq = ++searchReqSeq;
   loading.value = true;
   error.value = null;
   try {
-    result.value = await searchBooks(
+    const res = await searchBooks(
       query.value.trim(),
       page.value,
       sort.value,
     );
+    if (seq !== searchReqSeq) return; // 过期响应
+    result.value = res;
   } catch (err) {
-    error.value = String(err);
+    if (seq === searchReqSeq) error.value = String(err);
   } finally {
-    loading.value = false;
+    if (seq === searchReqSeq) loading.value = false;
   }
 }
 
@@ -158,7 +163,7 @@ watch(
           <span class="px-4 py-2 text-sm text-muted">第 {{ page }} 页</span>
           <button
             class="rounded-md border border-hairline bg-canvas px-4 py-2 text-sm font-medium transition hover:bg-surface-soft disabled:opacity-50"
-            :disabled="result.books.length === 0"
+            :disabled="result.books.length === 0 || page * result.books.length >= result.total"
             @click="changePage(page + 1)"
           >
             下一页

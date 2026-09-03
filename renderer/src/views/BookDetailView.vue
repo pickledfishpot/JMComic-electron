@@ -33,41 +33,49 @@ const downloadMessage = ref<string | null>(null);
 const commentsLoading = ref(false);
 const commentsError = ref<string | null>(null);
 const commentsResult = ref<CommentsResponse | null>(null);
+// 详情/评论请求序号：路由快速切换书籍时，仅采纳最新一次响应
+let detailReqSeq = 0;
 
 async function loadDetail() {
+  const seq = ++detailReqSeq;
   loading.value = true;
   error.value = null;
   try {
+    const id = props.id;
     const [detail, progressRes] = await Promise.all([
-      getBookDetail(props.id),
-      getReadingProgress(props.id).catch(() => ({
-        bookId: props.id,
+      getBookDetail(id),
+      getReadingProgress(id).catch(() => ({
+        bookId: id,
         progress: null,
       })),
     ]);
+    if (seq !== detailReqSeq) return; // 已切换到新书籍，丢弃过期响应
     book.value = detail;
     progress.value = progressRes.progress;
-    await loadComments();
+    await loadComments(seq);
   } catch (err) {
-    error.value = String(err);
+    if (seq === detailReqSeq) error.value = String(err);
   } finally {
-    loading.value = false;
+    if (seq === detailReqSeq) loading.value = false;
   }
 }
 
-async function loadComments(page = 1) {
+async function loadComments(page = 1, seq = detailReqSeq) {
   commentsLoading.value = true;
   commentsError.value = null;
   try {
-    commentsResult.value = await getBookComments(props.id, page);
+    const res = await getBookComments(props.id, page);
+    if (seq !== detailReqSeq) return;
+    commentsResult.value = res;
   } catch (err) {
-    commentsError.value = String(err);
+    if (seq === detailReqSeq) commentsError.value = String(err);
   } finally {
-    commentsLoading.value = false;
+    if (seq === detailReqSeq) commentsLoading.value = false;
   }
 }
 
-function startReading(epsIndex?: number) {  const idx = epsIndex ?? progress.value?.epsIndex ?? 0;
+function startReading(epsIndex?: number) {
+  const idx = epsIndex ?? progress.value?.epsIndex ?? 0;
   router.push(`/read/${props.id}/${idx}`);
 }
 
@@ -208,7 +216,7 @@ watch(() => props.id, loadDetail, { immediate: true });
                   }}</span>
                   <span
                     v-if="progress && progress.epsIndex === eps.index"
-                    class="ml-2 text-xs text-brand-ochre"
+                    class="ml-2 text-xs text-brand-teal"
                   >
                     ● 读至第 {{ progress.pageIndex + 1 }} 页
                   </span>

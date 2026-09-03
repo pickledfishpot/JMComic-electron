@@ -21,6 +21,8 @@ const error = ref<string | null>(null);
 const categories = ref<Category[]>([]);
 const activeSlug = ref<string>("0");
 const booksResult = ref<CategoryBooksResponse | null>(null);
+// 书籍列表请求序号：快速切换分类/排序时，仅采纳最新一次响应
+let booksReqSeq = 0;
 
 const sortOptions = [
   { value: "mr", label: "最新" },
@@ -46,15 +48,26 @@ async function loadCategories() {
 }
 
 async function loadCategoryBooks(slug: string, page = 1, sort = "mr") {
+  const seq = ++booksReqSeq;
   loading.value = true;
   error.value = null;
   try {
-    booksResult.value = await getCategoryBooks(slug, page, sort);
+    const res = await getCategoryBooks(slug, page, sort);
+    if (seq !== booksReqSeq) return; // 过期响应
+    booksResult.value = res;
     activeSlug.value = slug;
   } catch (err) {
-    error.value = String(err);
+    if (seq === booksReqSeq) error.value = String(err);
   } finally {
-    loading.value = false;
+    if (seq === booksReqSeq) loading.value = false;
+  }
+}
+
+/** 分类列表失败重试：恢复后若书籍从未加载成功，补一次加载 */
+async function retryCategories() {
+  await loadCategories();
+  if (!booksResult.value) {
+    loadCategoryBooks(activeSlug.value);
   }
 }
 
@@ -63,7 +76,8 @@ function openBook(book: BookItem) {
 }
 
 onMounted(() => {
-  loadCategories().then(() => loadCategoryBooks("0"));
+  // 分类列表失败不阻塞书籍加载（默认「全部」不依赖分类数据）
+  loadCategories().finally(() => loadCategoryBooks("0"));
 });
 </script>
 
@@ -77,7 +91,7 @@ onMounted(() => {
         v-else-if="error"
         type="error"
         :message="error"
-        @retry="loadCategories"
+        @retry="retryCategories"
       >
         <p class="mt-2 text-sm text-muted-soft">
           JM 服务器不太稳定，若重试三次仍失败，可能是对方服务器问题。

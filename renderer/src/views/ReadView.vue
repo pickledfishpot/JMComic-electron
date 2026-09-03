@@ -9,6 +9,7 @@ import {
 } from "vue";
 import { useRouter } from "vue-router";
 import { assetUrl } from "../api/client";
+import { useGoBack } from "../composables/useGoBack";
 import {
   getBookDetail,
   getEpsPages,
@@ -34,6 +35,10 @@ const props = defineProps<{
 }>();
 const router = useRouter();
 const isLocal = computed(() => props.local === "1");
+// 无历史记录时回退到来源页，避免 push 叠加
+const goBack = useGoBack(
+  computed(() => (isLocal.value ? "/local" : `/book/${props.bookId}`)),
+);
 
 const book = ref<BookDetail | LocalBook | null>(null);
 const pages = ref<EpsPage[] | LocalPage[]>([]);
@@ -50,6 +55,8 @@ const mode = ref<ReaderMode>(
 
 /** 加载失败需重试的页（索引 -> 重试计数，作为 img :key 的一部分强制重建） */
 const failedPages = ref(new Map<number, number>());
+/** 单页自动重建上限，超过后停止自动重试，等待用户手动点击 */
+const MAX_AUTO_RETRY = 2;
 const toolbarVisible = ref(true);
 const scrollContainer = ref<HTMLElement | null>(null);
 
@@ -66,6 +73,8 @@ const isLastPage = computed(
 let toolbarTimer: ReturnType<typeof setTimeout> | undefined;
 let progressTimer: ReturnType<typeof setTimeout> | undefined;
 let observer: IntersectionObserver | null = null;
+// 章节请求序号：快速切换章节时，仅采纳最新一次响应
+let pagesReqSeq = 0;
 
 function showToolbar() {
   toolbarVisible.value = true;
@@ -76,12 +85,14 @@ function showToolbar() {
 }
 
 async function loadPages(index: number, startPage = 0) {
+  const seq = ++pagesReqSeq;
   pagesLoading.value = true;
   error.value = null;
   try {
     const resp = isLocal.value
       ? await getLocalPages(props.bookId, index)
       : await getEpsPages(props.bookId, index);
+    if (seq !== pagesReqSeq) return; // 已切换到更新的请求，丢弃过期响应
     pages.value = resp.pages;
     epsIndex.value = resp.epsIndex;
     currentPage.value = Math.min(Math.max(startPage, 0), resp.pages.length - 1);
@@ -92,19 +103,15 @@ async function loadPages(index: number, startPage = 0) {
         : `/read/${props.bookId}/${resp.epsIndex}`,
     );
   } catch (err) {
-    error.value = String(err);
+    if (seq === pagesReqSeq) error.value = String(err);
   } finally {
-    pagesLoading.value = false;
+    if (seq === pagesReqSeq) pagesLoading.value = false;
   }
 }
 
 async function switchEps(index: number) {
   if (index === epsIndex.value || index < 0) return;
   await loadPages(index, 0);
-}
-
-function goBack() {
-  router.push(isLocal.value ? "/local" : `/book/${props.bookId}`);
 }
 
 function nextPage() {
@@ -153,10 +160,10 @@ async function toggleFullscreen() {
 }
 
 function onImgError(pageIndex: number) {
-  failedPages.value = new Map(failedPages.value).set(
-    pageIndex,
-    (failedPages.value.get(pageIndex) ?? 0) + 1,
-  );
+  const count = failedPages.value.get(pageIndex) ?? 0;
+  // 超过自动重建上限后停手，避免 img 无限 error->重建循环
+  if (count >= MAX_AUTO_RETRY) return;
+  failedPages.value = new Map(failedPages.value).set(pageIndex, count + 1);
 }
 
 function retryPage(pageIndex: number) {
@@ -311,9 +318,10 @@ watch(mode, () => {
   }
 });
 
-watch(pages, () => {
+watch([pages, failedPages], () => {
   if (mode.value === "scroll") {
     nextTick().then(() => {
+      // 失败页重试后 DOM 因 :key 变化被重建，需重新挂观察器
       setupObserver();
       scrollToCurrentPage();
     });
