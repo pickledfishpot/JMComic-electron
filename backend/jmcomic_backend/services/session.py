@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -58,10 +59,11 @@ class SessionManager:
     def save(self, session: UserSession) -> None:
         self._session = session
         try:
-            self._file.write_text(
-                json.dumps(asdict(session), ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+            # 写临时文件 + 原子替换，避免崩溃在写入中途留下损坏的 session.json
+            payload = json.dumps(asdict(session), ensure_ascii=False, indent=2)
+            tmp = self._file.with_suffix(".tmp")
+            tmp.write_text(payload, encoding="utf-8")
+            os.replace(tmp, self._file)
         except Exception as exc:
             logger.warning("failed to persist session: %s", exc)
 

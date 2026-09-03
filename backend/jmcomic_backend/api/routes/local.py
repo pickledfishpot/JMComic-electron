@@ -84,7 +84,8 @@ async def get_local_pages(
 async def get_local_image(
     book_id: str, eps_index: int, page_index: int, library: LocalLibraryDep
 ) -> Response:
-    result = library.read_page(book_id, eps_index, page_index)
+    # zip 解压/磁盘读可能很慢（NAS/大压缩包），放线程池避免阻塞事件循环
+    result = await asyncio.to_thread(library.read_page, book_id, eps_index, page_index)
     if result is None:
         raise HTTPException(status_code=404, detail="local image not found")
     data, content_type = result

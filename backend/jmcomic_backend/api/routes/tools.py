@@ -21,6 +21,24 @@ router = APIRouter(prefix="/tools", tags=["tools"])
 PROXY_TEST_URL = "https://www.google.com/generate_204"
 
 
+def _guess_image_type(data: bytes, filename: str) -> str:
+    """按结果字节魔数识别真实格式；sr_vulkan 输出格式与输入后缀不一定一致."""
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    if data[:2] == b"BM":
+        return "image/bmp"
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"
+    if ext in ("jpg", "jpeg"):
+        return "image/jpeg"
+    if ext in ("png", "webp", "bmp", "gif"):
+        return f"image/{ext}"
+    return "image/png"
+
+
 @router.get("/waifu2x/status")
 async def waifu2x_status() -> dict[str, Any]:
     return {"available": waifu2x_service.available()}
@@ -42,8 +60,7 @@ async def waifu2x_convert(
         )
     except Waifu2xError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    ext = (file.filename or "jpg").rsplit(".", 1)[-1].lower()
-    media_type = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
+    media_type = _guess_image_type(result, file.filename or "")
     return Response(content=result, media_type=media_type)
 
 
@@ -85,6 +102,8 @@ async def proxy_test(
     proxy = settings.proxy
     if not proxy.enabled:
         return {"ok": False, "error": "代理未启用，请先在设置中开启"}
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="仅支持 http(s) 协议的测试地址")
 
     proxy_url = ""
     for candidate in (proxy.http, proxy.https, proxy.socks5):

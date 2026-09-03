@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sqlite3
 import threading
 import time
@@ -52,6 +53,10 @@ class DownloadPaused(Exception):
     """任务被用户暂停."""
 
 
+class DownloadCancelled(Exception):
+    """任务被用户删除或应用正在退出."""
+
+
 class DownloadManager:
     def __init__(self, db_path: Path, download_dir: Path) -> None:
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,6 +69,8 @@ class DownloadManager:
         self._stopping = False
         # 正在执行的任务 id，防止 pause->resume 期间被重复领取
         self._active: set[str] = set()
+        # 被 remove() 标记删除的任务：worker 读到后立刻停止写入并退出
+        self._cancelled: set[str] = set()
         with self._lock:
             self._conn.execute(_SCHEMA)
             # 上次进程退出时遗留的 downloading 任务重新排队
@@ -81,7 +88,12 @@ class DownloadManager:
         self._stopping = True
         self._wake.set()
         if self._worker is not None:
-            await asyncio.gather(self._worker, return_exceptions=True)
+            # 给在途任务最多 10 秒收尾；超时直接取消（含在途页面请求）
+            try:
+                await asyncio.wait_for(asyncio.shield(self._worker), timeout=10)
+            except (asyncio.TimeoutError, TimeoutError):
+                self._worker.cancel()
+                await asyncio.gather(self._worker, return_exceptions=True)
             self._worker = None
 
     # ---------------- 任务管理（前端调用） ----------------
@@ -94,9 +106,17 @@ class DownloadManager:
         eps_id: str,
         eps_name: str,
     ) -> str:
-        task_id = uuid.uuid4().hex[:12]
-        now = time.time()
+        # 同一本书同一话去重：已有排队/下载中/暂停的任务直接复用
         with self._lock:
+            row = self._conn.execute(
+                "SELECT id FROM download_tasks "
+                "WHERE book_id = ? AND eps_index = ? AND status IN (?, ?, ?)",
+                (book_id, eps_index, STATUS_PENDING, STATUS_DOWNLOADING, STATUS_PAUSED),
+            ).fetchone()
+            if row:
+                return row[0]
+            task_id = uuid.uuid4().hex[:12]
+            now = time.time()
             self._conn.execute(
                 "INSERT INTO download_tasks "
                 "(id, book_id, book_title, eps_index, eps_id, eps_name, status, created_at, updated_at) "
@@ -144,6 +164,8 @@ class DownloadManager:
                 "DELETE FROM download_tasks WHERE id = ?", (task_id,)
             )
             self._conn.commit()
+        # 若在下载中，通知 worker 停止写入（在途页请求自然结束后退出）
+        self._cancelled.add(task_id)
         eps_dir = self._eps_dir(task["book_id"], task["eps_index"])
         # 后台删除文件，不阻塞请求；无事件循环时同步删除
         try:
@@ -196,38 +218,63 @@ class DownloadManager:
 
                 pending: set[asyncio.Task] = set()
                 page_iter = iter(pages)
-                while True:
-                    while len(pending) < PAGE_CONCURRENCY:
-                        page = next(page_iter, None)
-                        if page is None:
-                            break
-                        pending.add(
-                            asyncio.create_task(
-                                self._fetch_page(
-                                    client, task_id, out_dir, page, eps_id, scramble_id
+                try:
+                    while True:
+                        if self._stopping or task_id in self._cancelled:
+                            raise DownloadCancelled()
+                        while len(pending) < PAGE_CONCURRENCY:
+                            page = next(page_iter, None)
+                            if page is None:
+                                break
+                            pending.add(
+                                asyncio.create_task(
+                                    self._fetch_page(
+                                        client, task_id, out_dir, page, eps_id, scramble_id
+                                    )
                                 )
                             )
+                        if not pending:
+                            break
+                        done, pending = await asyncio.wait(
+                            pending, return_when=asyncio.FIRST_COMPLETED
                         )
-                    if not pending:
-                        break
-                    done, pending = await asyncio.wait(
-                        pending, return_when=asyncio.FIRST_COMPLETED
-                    )
-                    for item in done:
-                        exc = item.exception()
-                        if exc is not None:
-                            for rest in pending:
-                                rest.cancel()
-                            raise exc
+                        for item in done:
+                            exc = item.exception()
+                            if exc is not None:
+                                for rest in pending:
+                                    rest.cancel()
+                                raise exc
+                except BaseException:
+                    # 取消/暂停/异常退出时回收在途页任务，避免脱离监管继续写文件
+                    for rest in pending:
+                        rest.cancel()
+                    raise
 
-            if self._get_status(task_id) == STATUS_PAUSED:
-                return
-            self._set_status(task_id, STATUS_DONE)
+            # 行已被删除或状态被改写（暂停/恢复竞态）时不覆盖
+            if self._get_status(task_id) == STATUS_DOWNLOADING:
+                self._set_status(task_id, STATUS_DONE)
+        except DownloadCancelled:
+            self._cancelled.discard(task_id)
         except DownloadPaused:
-            self._set_status(task_id, STATUS_PAUSED)
+            # 仅在仍处于下载链路时落 PAUSED；pause->resume 竞态下保持新状态
+            self._set_status(task_id, STATUS_PAUSED, only_from={STATUS_DOWNLOADING})
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
             logger.warning("download task %s failed: %s", task_id, exc)
-            self._set_status(task_id, STATUS_ERROR, error=str(exc))
+            # only_from 防止 pause->resume 后旧 worker 的迟到错误覆盖新状态
+            self._set_status(
+                task_id, STATUS_ERROR, only_from={STATUS_DOWNLOADING}, error=str(exc)
+            )
+        finally:
+            self._cancelled.discard(task_id)
+
+    def _check_abort(self, task_id: str) -> None:
+        """页面级的中断检查：暂停 / 删除 / 退出."""
+        if task_id in self._cancelled or self._stopping:
+            raise DownloadCancelled()
+        if self._get_status(task_id) == STATUS_PAUSED:
+            raise DownloadPaused()
 
     async def _fetch_page(
         self,
@@ -238,27 +285,33 @@ class DownloadManager:
         eps_id: str,
         scramble_id: int,
     ) -> None:
-        if self._get_status(task_id) == STATUS_PAUSED:
-            raise DownloadPaused()
+        self._check_abort(task_id)
         dest = out_dir / f"{page['index'] + 1:04d}.{page['path'].rsplit('.', 1)[-1]}"
-        if dest.exists():
+        if dest.exists() and dest.stat().st_size > 0:
             self._increment_done(task_id)
             return
         data, _ = await client.fetch_image(page["path"])
         data = await asyncio.to_thread(
             deslice_image, data, eps_id, scramble_id, page["name"]
         )
-        await asyncio.to_thread(dest.write_bytes, data)
+        self._check_abort(task_id)
+        # 先写临时文件再原子替换，避免进程中断留下截断的页文件
+        # （截断文件会被 dest.exists() 当成已完成而永久跳过）
+        tmp = dest.with_suffix(dest.suffix + ".part")
+        try:
+            await asyncio.to_thread(tmp.write_bytes, data)
+            if tmp.stat().st_size == 0:
+                raise IOError(f"empty page data for {dest.name}")
+            await asyncio.to_thread(os.replace, tmp, dest)
+        finally:
+            if tmp.exists():
+                tmp.unlink(missing_ok=True)
         self._increment_done(task_id)
 
     # ---------------- 内部工具 ----------------
 
     def _eps_dir(self, book_id: str, eps_index: int) -> Path:
         return self._download_dir / str(book_id) / f"{eps_index + 1:03d}"
-
-    def book_dir(self, book_id: str) -> Path:
-        """整本书的下载目录（按 book_id 定位已下载内容）."""
-        return self._download_dir / str(book_id)
 
     def _rmtree(self, path: Path) -> None:
         import shutil

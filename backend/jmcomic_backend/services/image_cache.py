@@ -34,6 +34,11 @@ class ImageDiskCache:
             if lock is None:
                 lock = asyncio.Lock()
                 self._async_locks[key] = lock
+            # 长期翻页会让锁表无限增长；超限时回收已释放的锁
+            if len(self._async_locks) > 512:
+                self._async_locks = {
+                    k: v for k, v in self._async_locks.items() if v.locked()
+                }
             return lock
 
     def get(self, identifier: str) -> tuple[bytes, str] | None:

@@ -70,7 +70,8 @@ def _dict_to_url(params: dict[str, Any]) -> str:
     """移植自 tool.py ToolUtil.DictToUrl."""
     parts = []
     for key, value in params.items():
-        parts.append(f"{quote(str(key))}={quote(str(value))}")
+        # safe=""：密码/搜索词里的 "/" 等保留字符必须转义，否则破坏 POST 体
+        parts.append(f"{quote(str(key), safe='')}={quote(str(value), safe='')}")
     return "&".join(parts)
 
 
@@ -390,6 +391,9 @@ class JmClient:
             except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPStatusError) as exc:
                 last_exc = exc
                 logger.warning("JM request failed (attempt %d/%d): %s -> %s", attempt, MAX_RETRIES, url, exc)
+                # 4xx 是确定性失败（参数错误/未授权等），重试只会放大负载
+                if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code < 500:
+                    raise
                 if attempt < MAX_RETRIES:
                     await self._sleep(RETRY_DELAY_SECONDS)
         raise last_exc or RuntimeError("unknown request error")

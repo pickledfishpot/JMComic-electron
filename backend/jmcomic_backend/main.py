@@ -63,6 +63,7 @@ async def lifespan(app: FastAPI):
     logging.info("JMComic backend starting, version=%s, data_dir=%s", VERSION, paths.data_dir)
     yield
     await app.state.downloads.stop()
+    app.state.downloads.close()
     app.state.history.close()
     logging.info("JMComic backend shutting down")
 

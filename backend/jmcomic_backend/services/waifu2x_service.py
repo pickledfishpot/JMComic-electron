@@ -3,6 +3,9 @@
 sr_vulkan 是原生 Vulkan 扩展，打包/环境中不可用时整个功能隐藏：
 - available() 返回 False，前端不展示超分入口
 - convert() 仅在可用时工作，模型参数与原项目一致（model/scale/width/high）
+
+注意：sr.load(0) 是全局队列，并发调用会互抢结果导致双方死等，
+因此 convert 必须串行执行——用模块级锁排队，并加超时防挂死。
 """
 
 from __future__ import annotations
@@ -10,11 +13,16 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
+import threading
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 _task_ids = itertools.count(1)
+
+# 全局串行锁 + 结果等待上限（秒）
+_convert_lock = threading.Lock()
+_CONVERT_TIMEOUT = 120.0
 
 # 模块级缓存探测结果，避免每次 import 尝试的开销
 _available: bool | None = None
@@ -68,6 +76,7 @@ async def convert(
             raise Waifu2xError(f"超分任务入队失败: {sr.getLastError()}")
 
         t0 = time.time()
+        deadline = t0 + _CONVERT_TIMEOUT
         while True:
             info = sr.load(0)
             if info:
@@ -77,6 +86,13 @@ async def convert(
                         raise Waifu2xError("超分结果为空（图片格式可能不受支持）")
                     return data, round(time.time() - t0, 3)
             else:
+                if time.time() > deadline:
+                    raise Waifu2xError("超分处理超时，请重试")
                 time.sleep(0.01)
 
-    return await asyncio.to_thread(_run)
+    # sr.load 是进程级共享队列，并发进入会互抢结果：全局串行 + 超时
+    def _run_guarded() -> tuple[bytes, float]:
+        with _convert_lock:
+            return _run()
+
+    return await asyncio.to_thread(_run_guarded)

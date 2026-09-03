@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from jmcomic_backend.services.jm_client import JmClient
+from jmcomic_backend.services.jm_client import JmClient, JmApiError
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
 
@@ -30,6 +30,16 @@ def _require_session(request: Request) -> None:
         raise HTTPException(status_code=401, detail="请先登录")
 
 
+def _wrap(exc: Exception, action: str) -> HTTPException:
+    """JM 业务层返回的「请先登录」映射为 401，其余上游错误为 502，
+    让前端能区分「需要重新登录」与「服务器故障」."""
+    if isinstance(exc, JmApiError) and (
+        "登录" in str(exc) or "login" in str(exc).lower()
+    ):
+        return HTTPException(status_code=401, detail=str(exc))
+    return HTTPException(status_code=502, detail=f"Failed to {action}: {exc}")
+
+
 @router.get("")
 async def get_favorites(
     request: Request,
@@ -42,7 +52,7 @@ async def get_favorites(
         try:
             data = await client.get_favorites(page=page, sort=sort, folder_id=folderId)
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Failed to fetch favorites: {exc}") from exc
+            raise _wrap(exc, "fetch favorites") from exc
     data["page"] = page
     data["sort"] = sort
     data["folderId"] = folderId
@@ -56,7 +66,7 @@ async def toggle_favorite(body: ToggleFavoriteBody, request: Request) -> dict[st
         try:
             return await client.toggle_favorite(body.bookId)
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Failed to toggle favorite: {exc}") from exc
+            raise _wrap(exc, "toggle favorite") from exc
 
 
 @router.post("/folders")
@@ -66,7 +76,7 @@ async def add_folder(body: AddFolderBody, request: Request) -> dict[str, Any]:
         try:
             return await client.add_favorite_folder(body.name)
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Failed to add folder: {exc}") from exc
+            raise _wrap(exc, "add folder") from exc
 
 
 @router.delete("/folders/{folder_id}")
@@ -76,7 +86,7 @@ async def delete_folder(folder_id: str, request: Request) -> dict[str, Any]:
         try:
             return await client.delete_favorite_folder(folder_id)
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Failed to delete folder: {exc}") from exc
+            raise _wrap(exc, "delete folder") from exc
 
 
 @router.post("/move")
@@ -86,4 +96,4 @@ async def move_to_folder(body: MoveFolderBody, request: Request) -> dict[str, An
         try:
             return await client.move_favorite_folder(body.bookId, body.folderId)
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Failed to move favorite: {exc}") from exc
+            raise _wrap(exc, "move favorite") from exc
