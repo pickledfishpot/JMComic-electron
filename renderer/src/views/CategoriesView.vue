@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { assetUrl } from "../api/client";
+import { BRAND_PILL_COLORS } from "../utils/brand";
 import {
   getCategories,
   getCategoryBooks,
@@ -105,6 +106,7 @@ onMounted(() => {
             { value: '0', label: '全部' },
             ...categories.map((c) => ({ value: c.slug, label: c.name })),
           ]"
+          :colors="BRAND_PILL_COLORS"
           @update:model-value="(v) => loadCategoryBooks(v)"
         />
 
@@ -116,6 +118,7 @@ onMounted(() => {
             :model-value="booksResult?.sort || 'mr'"
             :options="sortOptions"
             size="sm"
+            :colors="BRAND_PILL_COLORS"
             @update:model-value="(v) => loadCategoryBooks(activeSlug, 1, v)"
           />
         </div>

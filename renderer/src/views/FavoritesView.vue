@@ -8,6 +8,7 @@ import {
 } from "../api/account";
 import { useUserStore } from "../stores/user";
 import { assetUrl } from "../api/client";
+import { BRAND_PILL_COLORS } from "../utils/brand";
 import type { BookItem } from "../api/books";
 import PageHeader from "../components/PageHeader.vue";
 import BookCard from "../components/BookCard.vue";
@@ -107,6 +108,7 @@ onMounted(async () => {
             { value: '0', label: '全部' },
             ...result.folders.map((f) => ({ value: f.id, label: f.name })),
           ]"
+          :colors="BRAND_PILL_COLORS"
           @update:model-value="reload"
         />
 

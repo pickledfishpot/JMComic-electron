@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { searchBooks, type BookItem, type SearchResponse } from "../api/books";
 import { assetUrl } from "../api/client";
 import { useGoBack } from "../composables/useGoBack";
+import { BRAND_PILL_COLORS } from "../utils/brand";
 import BookCard from "../components/BookCard.vue";
 import PillTabs from "../components/PillTabs.vue";
 import StateBlock from "../components/StateBlock.vue";
@@ -135,6 +136,7 @@ watch(
             :options="sortOptions"
             :model-value="sort"
             size="sm"
+            :colors="BRAND_PILL_COLORS"
             @update:model-value="changeSort"
           />
         </div>

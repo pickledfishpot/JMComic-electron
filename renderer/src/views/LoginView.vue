@@ -5,6 +5,7 @@ import { getCaptchaUrl, register } from "../api/account";
 import PageHeader from "../components/PageHeader.vue";
 import PillTabs from "../components/PillTabs.vue";
 import { useGoBack } from "../composables/useGoBack";
+import { BRAND_PILL_COLORS } from "../utils/brand";
 
 const userStore = useUserStore();
 const goBack = useGoBack();
@@ -86,7 +87,12 @@ onMounted(() => {
     <PageHeader title="登录 / 注册" />
 
     <main class="mx-auto max-w-md p-6">
-      <PillTabs v-model="tab" class="mb-6" :options="TABS" />
+      <PillTabs
+        v-model="tab"
+        class="mb-6"
+        :options="TABS"
+        :colors="BRAND_PILL_COLORS"
+      />
 
       <div v-if="userStore.user" class="card mb-6 p-4 text-sm">
         <p>

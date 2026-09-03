@@ -13,6 +13,7 @@ import { toggleFavorite } from "../api/account";
 import { startDownload } from "../api/downloads";
 import { assetUrl } from "../api/client";
 import { useUserStore } from "../stores/user";
+import { brandTheme } from "../utils/brand";
 import PageHeader from "../components/PageHeader.vue";
 import StateBlock from "../components/StateBlock.vue";
 
@@ -149,7 +150,12 @@ watch(() => props.id, loadDetail, { immediate: true });
             </div>
 
             <div class="mt-4 flex flex-wrap gap-2">
-              <span v-for="tag in book.tags" :key="tag" class="badge-pill">
+              <span
+                v-for="(tag, i) in book.tags"
+                :key="tag"
+                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium"
+                :class="[brandTheme(i).soft, brandTheme(i).title]"
+              >
                 {{ tag }}
               </span>
             </div>
