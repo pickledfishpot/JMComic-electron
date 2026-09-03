@@ -19,7 +19,7 @@
     "test": "pnpm run test:backend",
     "test:backend": "cd backend && .venv/bin/pytest ../tests/backend -q",
     "lint": "eslint electron renderer/src --ext .ts,.vue",
-    "postinstall": "cd backend && python3 -m venv .venv && .venv/bin/pip install -e ."
+    "postinstall": "node scripts/setup-backend-venv.mjs"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
