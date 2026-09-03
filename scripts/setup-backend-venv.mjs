@@ -26,4 +26,5 @@ if (!fs.existsSync(venvPython)) {
   run(isWin ? "python" : "python3", ["-m", "venv", ".venv"], backendDir);
 }
 
-run(venvPython, ["-m", "pip", "install", "-e", "."], backendDir);
+// 装 dev extra：PyInstaller(打包)与 pytest(测试)都在里面
+run(venvPython, ["-m", "pip", "install", "-e", ".[dev]"], backendDir);
