@@ -4,16 +4,28 @@ import { useRouter } from "vue-router";
 import {
   getBookDetail,
   getBookComments,
+  getReadingProgress,
   type BookDetail,
   type CommentsResponse,
+  type ReadingProgress,
 } from "../api/books";
+import { toggleFavorite } from "../api/account";
+import { startDownload } from "../api/downloads";
+import { useUserStore } from "../stores/user";
 
 const props = defineProps<{ id: string }>();
 const router = useRouter();
+const userStore = useUserStore();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
 const book = ref<BookDetail | null>(null);
+const progress = ref<ReadingProgress | null>(null);
+
+const favoriteBusy = ref(false);
+const favoriteMessage = ref<string | null>(null);
+const downloadBusy = ref(false);
+const downloadMessage = ref<string | null>(null);
 
 const commentsLoading = ref(false);
 const commentsError = ref<string | null>(null);
@@ -23,7 +35,15 @@ async function loadDetail() {
   loading.value = true;
   error.value = null;
   try {
-    book.value = await getBookDetail(props.id);
+    const [detail, progressRes] = await Promise.all([
+      getBookDetail(props.id),
+      getReadingProgress(props.id).catch(() => ({
+        bookId: props.id,
+        progress: null,
+      })),
+    ]);
+    book.value = detail;
+    progress.value = progressRes.progress;
     await loadComments();
   } catch (err) {
     error.value = String(err);
@@ -46,6 +66,44 @@ async function loadComments(page = 1) {
 
 function goBack() {
   router.back();
+}
+
+function startReading(epsIndex?: number) {
+  const idx = epsIndex ?? progress.value?.epsIndex ?? 0;
+  router.push(`/read/${props.id}/${idx}`);
+}
+
+async function toggleFav() {
+  if (!userStore.user) {
+    router.push("/login");
+    return;
+  }
+  if (!book.value) return;
+  favoriteBusy.value = true;
+  favoriteMessage.value = null;
+  try {
+    const res = await toggleFavorite(book.value.id);
+    favoriteMessage.value = res.message || "操作成功";
+    book.value.isFavorite = !book.value.isFavorite;
+  } catch (err) {
+    favoriteMessage.value = String(err);
+  } finally {
+    favoriteBusy.value = false;
+  }
+}
+
+async function downloadBook() {
+  if (!book.value) return;
+  downloadBusy.value = true;
+  downloadMessage.value = null;
+  try {
+    const res = await startDownload(book.value.id, undefined, book.value.title);
+    downloadMessage.value = `已创建 ${res.taskIds.length} 个下载任务`;
+  } catch (err) {
+    downloadMessage.value = String(err);
+  } finally {
+    downloadBusy.value = false;
+  }
 }
 
 watch(() => props.id, loadDetail, { immediate: true });
@@ -119,18 +177,68 @@ watch(() => props.id, loadDetail, { immediate: true });
             </p>
 
             <div class="mt-8">
-              <h3 class="mb-3 font-semibold">章节列表</h3>
+              <div class="mb-3 flex flex-wrap items-center gap-3">
+                <h3 class="font-semibold">章节列表</h3>
+                <button
+                  class="rounded-lg bg-[#feca57] px-4 py-1.5 text-sm font-medium text-black hover:opacity-90"
+                  @click="startReading()"
+                >
+                  {{
+                    progress
+                      ? `继续阅读 · 第 ${progress.epsIndex + 1} 话`
+                      : "开始阅读"
+                  }}
+                </button>
+                <button
+                  class="rounded-lg px-4 py-1.5 text-sm"
+                  :class="
+                    book.isFavorite
+                      ? 'bg-[#feca57]/20 text-[#feca57]'
+                      : 'bg-white/10 hover:bg-white/20'
+                  "
+                  :disabled="favoriteBusy"
+                  @click="toggleFav"
+                >
+                  {{ book.isFavorite ? "★ 已收藏" : "☆ 收藏" }}
+                </button>
+                <button
+                  class="rounded-lg bg-white/10 px-4 py-1.5 text-sm hover:bg-white/20"
+                  :disabled="downloadBusy"
+                  @click="downloadBook"
+                >
+                  {{ downloadBusy ? "创建中..." : "⬇ 下载本书" }}
+                </button>
+                <router-link
+                  to="/downloads"
+                  class="text-xs text-gray-500 hover:text-gray-300"
+                >
+                  下载管理 →
+                </router-link>
+              </div>
+              <p v-if="favoriteMessage" class="mb-2 text-xs text-gray-400">
+                {{ favoriteMessage }}
+              </p>
+              <p v-if="downloadMessage" class="mb-2 text-xs text-gray-400">
+                {{ downloadMessage }}
+              </p>
               <div class="grid gap-2 sm:grid-cols-2">
-                <div
+                <button
                   v-for="eps in book.eps"
                   :key="eps.index"
-                  class="rounded-lg bg-[#1a1a1a] px-4 py-3 text-sm hover:bg-[#252525]"
+                  class="rounded-lg bg-[#1a1a1a] px-4 py-3 text-left text-sm hover:bg-[#252525]"
+                  @click="startReading(eps.index)"
                 >
                   第 {{ eps.index + 1 }} 话
                   <span v-if="eps.name" class="ml-2 text-gray-500">{{
                     eps.name
                   }}</span>
-                </div>
+                  <span
+                    v-if="progress && progress.epsIndex === eps.index"
+                    class="ml-2 text-xs text-[#feca57]"
+                  >
+                    ● 读至第 {{ progress.pageIndex + 1 }} 页
+                  </span>
+                </button>
               </div>
             </div>
           </div>

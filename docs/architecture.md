@@ -145,17 +145,17 @@ JMComic-electron/
 ## 5. 后端 API 表面
 
 ### 5.1 认证
-- `POST /api/auth/login`
+- `POST /api/auth/login` → body `{username, password}`，成功返回 `{user}`（401 = 账号密码错误）；登录态 = JM 返回的 cookies，持久化到 `data_dir/session.json`，重启保持
 - `POST /api/auth/logout`
-- `POST /api/auth/register`
-- `GET /api/auth/captcha`
-- `GET /api/auth/me`
+- `POST /api/auth/register` → 走 web 主站 `/signup` + toastr 解析，需先 `GET /api/auth/captcha` 拿验证码与配套 cookie
+- `GET /api/auth/captcha` → 验证码图片（点击刷新），暂存注册用 cookie
+- `GET /api/auth/me` → `{user: {...} | null}`
 
 ### 5.2 书籍 / 目录
-- `GET /api/books/{book_id}`
-- `GET /api/books/{book_id}/eps`
-- `GET /api/books/{book_id}/eps/{eps_index}/scramble`
-- `GET /api/books/{book_id}/eps/{eps_index}/pages`
+- `GET /api/books/{book_id}`（已含 eps 列表，不再单列 `/eps`）
+- `GET /api/books/{book_id}/eps/{eps_index}/pages` → 返回 `{epsId, scrambleId, pages:[{index, name, url}]}`，url 已带 `scramble_id`
+- `GET /api/books/{book_id}/progress` → `{progress: {epsIndex, pageIndex, updatedAt} | null}`
+- `PUT /api/books/{book_id}/progress`，body `{epsIndex, pageIndex, title?}`（title 供历史页展示）
 - `GET /api/index`
 - `GET /api/latest?page=`
 - `GET /api/week/categories`
@@ -167,25 +167,27 @@ JMComic-electron/
 - `GET /api/categories/{slug}/books`
 
 ### 5.4 收藏 / 历史 / 评论
-- `GET /api/favorites`
-- `POST /api/favorites`
-- `POST /api/favorites/folders`
-- `GET /api/history`
+- `GET /api/favorites?page=&sort=&folderId=`（需登录，401 = 未登录）→ `{total, count, books, folders}`
+- `POST /api/favorites` → body `{bookId}`，切换收藏状态
+- `POST /api/favorites/folders` / `DELETE /api/favorites/folders/{fid}` / `POST /api/favorites/move`
+- `GET /api/history?page=&pageSize=` → 本地阅读历史（`read_history` 表，含 title，倒序）
+- `DELETE /api/history/{book_id}`
 - `GET /api/books/{book_id}/comments`
 - `POST /api/books/{book_id}/comments`
 
 ### 5.5 图片
 - `GET /api/images/{path:path}` → 代理远端图床图片，返回原始字节
+- `GET /api/images/{path:path}?scramble_id=` → 阅读器图片，后端按 JM 规则反分割后返回；结果缓存到 `data_dir/cache/images`（sha1 命名 + .meta 记录 content-type），同图并发只拉取一次
 - `POST /api/images/fetch` → 返回 `{imageId, contentType, width, height}`
 - `POST /api/images/descramble`
 - `DELETE /api/images/{imageId}`
 
 ### 5.6 下载
-- `GET /api/downloads`
-- `POST /api/downloads/start`
-- `POST /api/downloads/pause`
-- `POST /api/downloads/remove`
-- `POST /api/downloads/retry`
+- `GET /api/downloads` → 任务列表（每章一个任务）
+- `POST /api/downloads/start` → body `{bookId, epsIndexes?, bookTitle?}`，epsIndexes 缺省 = 全部章节
+- `POST /api/downloads/{id}/pause` / `resume` / `retry`
+- `DELETE /api/downloads/{id}`（同时删除已下载文件）
+- 任务持久化 `download_tasks` 表；worker 单循环串行执行，任务内 4 并发拉页，逐页反分割写入 `download_dir/{book_id}/{章节:03d}/{页:04d}.{ext}`；已存在的页自动跳过（重试 = 断点续传）；进程重启后 downloading 任务自动重新排队
 
 ### 5.7 本地 / NAS / 工具
 - `POST /api/local/scan`
@@ -267,8 +269,8 @@ JMComic-electron/
 | **0. 脚手架** ✅ | Vite+Vue3+Electron、FastAPI、IPC、健康检查屏 | 应用启动并连接后端 |
 | **1. 最小闭环** ✅ | 移植 req.py/server.py/tool.py，首页推荐/书籍详情/封面图代理 | 可浏览首页与书籍详情 |
 | **2. 搜索/分类/评论** ✅ | 搜索/分类/评论 API 与前端页面 | 浏览可用 |
-| **3. 阅读器** | 图片拉取/反分割、阅读模式、快捷键、历史写入 | 可流畅阅读 |
-| **4. 用户/收藏/下载** | 登录/注册/验证码、收藏/历史、下载队列+DB | 下载可持久化 |
+| **3. 阅读器** ✅ | 图片拉取/反分割（PIL 移植 tool.py）、翻页/滚动模式、快捷键、进度条、阅读历史 SQLite | 可流畅阅读，进度可恢复 |
+| **4. 用户/收藏/下载** ✅ | 登录/注册/验证码、cookie 会话持久化、收藏列表与切换、本地历史、下载队列（SQLite + 反分割落盘 + 暂停/重试） | 下载可持久化 |
 | **5. 超分/本地/NAS/工具** | Waifu2x、本地图库、NAS 上传、代理/DNS 工具 | 高级功能完成 |
 | **6. 原生外壳与打包** | 托盘、单实例、对话框、主题、安装包 | 三平台安装包 |
 

@@ -9,12 +9,15 @@ import asyncio
 import base64
 import json
 import logging
+import re
 import time
 from typing import Any
 from urllib.parse import quote
 
 import httpx
 from jmcomic import JmCryptoTool
+
+from jmcomic_backend.services.deslice import DEFAULT_SCRAMBLE_ID
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +42,19 @@ IMG_TIMEOUT = httpx.Timeout(30.0, connect=5.0)
 # JM 服务器不稳定，API 请求最多重试 3 次
 MAX_RETRIES = 3
 RETRY_DELAY_SECONDS = 1.0
+
+# 登录态 cookies：单用户桌面应用，登录后由 SessionManager 写入默认 cookies
+_default_cookies: dict[str, str] = {}
+
+
+def set_default_cookies(cookies: dict[str, str]) -> None:
+    """设置全局默认 cookies，新建的 JmClient 自动携带."""
+    global _default_cookies
+    _default_cookies = dict(cookies)
+
+
+class JmApiError(Exception):
+    """JM API 返回业务错误（code != 200 等）."""
 
 
 def _dict_to_url(params: dict[str, Any]) -> str:
@@ -202,6 +218,74 @@ def _parse_categories(raw: dict[str, Any]) -> dict[str, Any]:
     return {"categories": categories, "blocks": blocks}
 
 
+def _parse_chapter_pages(raw: dict[str, Any], eps_id: str) -> list[dict[str, Any]]:
+    """移植自 tool.py ToolUtil.ParseBookEpsInfo2：按文件名数字排序生成页列表.
+
+    文件名中的数字即真实页码，需排序后连续编号；path 为图片代理用的相对路径.
+    """
+    named: list[tuple[int, str]] = []
+    for name in raw.get("images", []):
+        mo = re.search(r"\d+", name)
+        if not mo:
+            continue
+        named.append((int(mo.group()), name))
+    named.sort(key=lambda item: item[0])
+    return [
+        {
+            "index": idx,
+            "name": name.rsplit(".", 1)[0],
+            "path": f"media/photos/{eps_id}/{name}",
+        }
+        for idx, (_, name) in enumerate(named)
+    ]
+
+
+def _parse_scramble_id(html: str) -> int:
+    """移植自 tool.py ToolUtil.ParseBookEpsScramble：从 chapter_view_template HTML 提取."""
+    mo = re.search(r"(?<=var scramble_id = )\w+", html)
+    if not mo:
+        logger.warning("scramble_id not found in chapter_view_template, fallback to %s", DEFAULT_SCRAMBLE_ID)
+        return DEFAULT_SCRAMBLE_ID
+    return int(mo.group())
+
+
+def _parse_login(raw: dict[str, Any]) -> dict[str, Any]:
+    """移植自 tool.py ToolUtil.ParseLogin2."""
+    return {
+        "uid": str(raw.get("uid", "")),
+        "username": raw.get("username", ""),
+        "title": raw.get("level_name", ""),
+        "level": str(raw.get("level", "")),
+        "coin": str(raw.get("coin", "")),
+        "gender": raw.get("gender", ""),
+        "favorites": str(raw.get("album_favorites", "")),
+        "favorites_max": str(raw.get("album_favorites_max", "")),
+        "exp": int(raw.get("exp", 0)),
+        "next_exp": int(raw.get("nextLevelExp", 0)),
+    }
+
+
+def _parse_favorites(raw: dict[str, Any]) -> dict[str, Any]:
+    """移植自 tool.py ToolUtil.ParseFavoritesReq2."""
+    folders = [
+        {"id": str(item.get("FID", "")), "name": item.get("name", "")}
+        for item in raw.get("folder_list", [])
+    ]
+    return {
+        "total": int(raw.get("total", 0)),
+        "count": int(raw.get("count", 0)),
+        "books": [_parse_book_info(item) for item in raw.get("list", [])],
+        "folders": folders,
+    }
+
+
+def _parse_msg(raw: Any) -> dict[str, Any]:
+    """移植自 tool.py ToolUtil.ParseMsgReq2：{status: ok, msg}."""
+    if isinstance(raw, dict):
+        return {"ok": raw.get("status") == "ok", "message": raw.get("msg", "")}
+    return {"ok": False, "message": ""}
+
+
 def _parse_comment(raw: dict[str, Any]) -> dict[str, Any]:
     """移植自 tool.py ToolUtil.ParseBookComment."""
     comments: list[dict[str, Any]] = []
@@ -249,9 +333,15 @@ def _parse_comment(raw: dict[str, Any]) -> dict[str, Any]:
 class JmClient:
     """JMComic 异步 HTTP 客户端."""
 
-    def __init__(self, api_index: int = 0, img_index: int = 0) -> None:
+    def __init__(
+        self,
+        api_index: int = 0,
+        img_index: int = 0,
+        cookies: dict[str, str] | None = None,
+    ) -> None:
         self.api_index = api_index
         self.img_index = img_index
+        self._cookies = dict(cookies) if cookies is not None else dict(_default_cookies)
         self._client = httpx.AsyncClient(
             timeout=DEFAULT_TIMEOUT,
             follow_redirects=True,
@@ -271,6 +361,12 @@ class JmClient:
         JM 服务器不太稳定，超时或网络抖动时自动重试；
         若连续失败则抛出最后一次异常，由上层返回 502 并知会用户.
         """
+        if self._cookies and kwargs.get("headers") is not None:
+            headers = dict(kwargs["headers"])
+            headers["Cookie"] = "; ".join(
+                f"{key}={value}" for key, value in self._cookies.items()
+            )
+            kwargs["headers"] = headers
         last_exc: Exception | None = None
         for attempt in range(1, MAX_RETRIES + 1):
             try:
@@ -377,6 +473,128 @@ class JmClient:
         if not isinstance(payload, dict):
             raise ValueError(f"unexpected comments response type: {type(payload)}")
         return _parse_comment(payload)
+
+    async def _get_api_decoded(self, path: str, params: dict[str, Any]) -> Any:
+        """GET JM API 并解密 data 字段，code != 200 抛 JmApiError."""
+        ts = str(int(time.time()))
+        url = _api_url(path, params, self.api_index)
+        headers = _build_headers(int(ts))
+        response = await self._request_with_retry("GET", url, headers=headers)
+        payload = response.json()
+        if isinstance(payload, dict) and payload.get("code") != 200:
+            raise JmApiError(
+                str(payload.get("errorMsg") or payload.get("message") or f"code={payload.get('code')}")
+            )
+        return _decode_response(payload, ts)
+
+    async def _post_api_decoded(self, path: str, params: dict[str, Any]) -> Any:
+        """POST 表单到 JM API 并解密 data 字段，code != 200 抛 JmApiError."""
+        ts = str(int(time.time()))
+        url = _api_url(path, {}, self.api_index)
+        headers = _build_headers(int(ts))
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        response = await self._request_with_retry(
+            "POST", url, headers=headers, content=_dict_to_url(params)
+        )
+        payload = response.json()
+        if isinstance(payload, dict) and payload.get("code") != 200:
+            raise JmApiError(
+                str(payload.get("errorMsg") or payload.get("message") or f"code={payload.get('code')}")
+            )
+        return _decode_response(payload, ts)
+
+    async def login(self, username: str, password: str) -> tuple[dict[str, Any], dict[str, str]]:
+        """登录，返回 (用户信息, cookies)."""
+        ts = str(int(time.time()))
+        url = _api_url("/login", {}, self.api_index)
+        headers = _build_headers(int(ts))
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        body = _dict_to_url({"username": username, "password": password})
+        response = await self._request_with_retry("POST", url, headers=headers, content=body)
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get("code") != 200:
+            raise JmApiError(
+                str(
+                    (payload or {}).get("errorMsg")
+                    or (payload or {}).get("message")
+                    or "登录失败，请检查用户名或密码"
+                )
+            )
+        data = _decode_response(payload, ts)
+        if not isinstance(data, dict):
+            raise JmApiError("unexpected login response")
+        return _parse_login(data), dict(response.cookies)
+
+    async def get_favorites(
+        self, page: int = 1, sort: str = "mr", folder_id: str = "0"
+    ) -> dict[str, Any]:
+        """获取收藏列表，移植自 GetFavoritesReq2."""
+        data = await self._get_api_decoded(
+            "/favorite", {"page": str(page), "folder_id": folder_id, "o": sort}
+        )
+        if not isinstance(data, dict):
+            raise ValueError(f"unexpected favorites response type: {type(data)}")
+        return _parse_favorites(data)
+
+    async def toggle_favorite(self, book_id: str | int) -> dict[str, Any]:
+        """添加/取消收藏（同一接口切换），移植自 AddAndDelFavoritesReq2."""
+        data = await self._post_api_decoded("/favorite", {"aid": str(book_id)})
+        return _parse_msg(data)
+
+    async def add_favorite_folder(self, name: str) -> dict[str, Any]:
+        data = await self._post_api_decoded(
+            "/favorite_folder", {"folder_name": name, "type": "add"}
+        )
+        return _parse_msg(data)
+
+    async def delete_favorite_folder(self, folder_id: str | int) -> dict[str, Any]:
+        data = await self._post_api_decoded(
+            "/favorite_folder", {"folder_id": str(folder_id), "type": "del"}
+        )
+        return _parse_msg(data)
+
+    async def move_favorite_folder(
+        self, book_id: str | int, folder_id: str | int
+    ) -> dict[str, Any]:
+        data = await self._post_api_decoded(
+            "/favorite_folder",
+            {"folder_id": str(folder_id), "type": "move", "aid": str(book_id)},
+        )
+        return _parse_msg(data)
+
+    async def get_watch_history(self, page: int = 1) -> dict[str, Any]:
+        """获取 JM 服务器观看记录，移植自 GetHistoryReq2."""
+        data = await self._get_api_decoded("/watch_list", {"page": str(page)})
+        if not isinstance(data, dict):
+            raise ValueError(f"unexpected watch_list response type: {type(data)}")
+        return {
+            "total": int(data.get("total", 0)),
+            "books": [_parse_book_info(item) for item in data.get("list", [])],
+        }
+
+    async def get_chapter_pages(self, eps_id: str | int) -> list[dict[str, Any]]:
+        """获取章节图片列表，返回按页码排序的 [{index, name, path}]."""
+        ts = str(int(time.time()))
+        url = _api_url("/chapter", {"comicName": "", "skip": "", "id": str(eps_id)}, self.api_index)
+        headers = _build_headers(int(ts))
+        logger.debug("GET %s", url)
+        response = await self._request_with_retry("GET", url, headers=headers)
+        payload = _decode_response(response.json(), ts)
+        if not isinstance(payload, dict):
+            raise ValueError(f"unexpected chapter response type: {type(payload)}")
+        return _parse_chapter_pages(payload, str(eps_id))
+
+    async def get_scramble_id(self, eps_id: str | int) -> int:
+        """获取章节反分割参数 scramble_id（chapter_view_template 返回 HTML）."""
+        url = _api_url(
+            "/chapter_view_template",
+            {"id": str(eps_id), "mode": "vertical", "page": "0", "app_img_shunt": "NaN"},
+            self.api_index,
+        )
+        headers = _build_headers()
+        logger.debug("GET %s", url)
+        response = await self._request_with_retry("GET", url, headers=headers)
+        return _parse_scramble_id(response.text)
 
     async def fetch_image(self, path: str) -> tuple[bytes, str]:
         """拉取远端图片，返回 (bytes, content_type)."""

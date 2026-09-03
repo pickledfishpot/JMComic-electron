@@ -2,8 +2,6 @@
 
 from unittest.mock import AsyncMock, patch
 
-from fastapi.testclient import TestClient
-
 from jmcomic_backend.main import create_app
 
 
@@ -86,9 +84,7 @@ SAMPLE_COMMENTS = {
 }
 
 
-def test_get_index(tmp_path):
-    app = create_app(tmp_path)
-    client = TestClient(app)
+def test_get_index(client):
     with patch("jmcomic_backend.api.routes.index.JmClient") as mock_cls:
         instance = mock_cls.return_value.__aenter__.return_value
         instance.get_index = AsyncMock(return_value=SAMPLE_INDEX["sections"])
@@ -99,9 +95,7 @@ def test_get_index(tmp_path):
     assert "本周排行" in data["sections"]
 
 
-def test_get_book_detail(tmp_path):
-    app = create_app(tmp_path)
-    client = TestClient(app)
+def test_get_book_detail(client):
     with patch("jmcomic_backend.api.routes.books.JmClient") as mock_cls:
         instance = mock_cls.return_value.__aenter__.return_value
         instance.get_book_detail = AsyncMock(return_value=SAMPLE_BOOK)
@@ -112,9 +106,7 @@ def test_get_book_detail(tmp_path):
     assert data["title"] == "测试漫画"
 
 
-def test_proxy_image(tmp_path):
-    app = create_app(tmp_path)
-    client = TestClient(app)
+def test_proxy_image(client):
     with patch("jmcomic_backend.api.routes.images.JmClient") as mock_cls:
         instance = mock_cls.return_value.__aenter__.return_value
         instance.fetch_image = AsyncMock(return_value=(b"fake-image-data", "image/jpeg"))
@@ -124,9 +116,7 @@ def test_proxy_image(tmp_path):
     assert response.headers["content-type"] == "image/jpeg"
 
 
-def test_search_books(tmp_path):
-    app = create_app(tmp_path)
-    client = TestClient(app)
+def test_search_books(client):
     with patch("jmcomic_backend.api.routes.search.JmClient") as mock_cls:
         instance = mock_cls.return_value.__aenter__.return_value
         instance.search = AsyncMock(return_value=SAMPLE_SEARCH)
@@ -138,9 +128,7 @@ def test_search_books(tmp_path):
     assert data["books"][0]["id"] == "123456"
 
 
-def test_get_categories(tmp_path):
-    app = create_app(tmp_path)
-    client = TestClient(app)
+def test_get_categories(client):
     with patch("jmcomic_backend.api.routes.categories.JmClient") as mock_cls:
         instance = mock_cls.return_value.__aenter__.return_value
         instance.get_categories = AsyncMock(return_value=SAMPLE_CATEGORIES)
@@ -151,9 +139,7 @@ def test_get_categories(tmp_path):
     assert data["categories"][0]["slug"] == "doujin"
 
 
-def test_get_category_books(tmp_path):
-    app = create_app(tmp_path)
-    client = TestClient(app)
+def test_get_category_books(client):
     with patch("jmcomic_backend.api.routes.categories.JmClient") as mock_cls:
         instance = mock_cls.return_value.__aenter__.return_value
         instance.get_category_books = AsyncMock(return_value=SAMPLE_SEARCH)
@@ -164,9 +150,7 @@ def test_get_category_books(tmp_path):
     assert data["total"] == 1
 
 
-def test_get_book_comments(tmp_path):
-    app = create_app(tmp_path)
-    client = TestClient(app)
+def test_get_book_comments(client):
     with patch("jmcomic_backend.api.routes.comments.JmClient") as mock_cls:
         instance = mock_cls.return_value.__aenter__.return_value
         instance.get_book_comments = AsyncMock(return_value=SAMPLE_COMMENTS)

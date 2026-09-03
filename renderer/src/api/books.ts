@@ -90,6 +90,26 @@ export interface CommentsResponse {
   comments: CommentItem[];
 }
 
+export interface EpsPage {
+  index: number;
+  name: string;
+  url: string;
+}
+
+export interface EpsPagesResponse {
+  bookId: string;
+  epsIndex: number;
+  epsId: string;
+  scrambleId: number;
+  pages: EpsPage[];
+}
+
+export interface ReadingProgress {
+  epsIndex: number;
+  pageIndex: number;
+  updatedAt: number;
+}
+
 export function getIndex(page = "0"): Promise<IndexResponse> {
   return apiFetch(`/index?page=${encodeURIComponent(page)}`);
 }
@@ -135,4 +155,29 @@ export function getBookComments(
   return apiFetch(
     `/books/${encodeURIComponent(bookId)}/comments?${params.toString()}`,
   );
+}
+
+export function getEpsPages(
+  bookId: string,
+  epsIndex: number,
+): Promise<EpsPagesResponse> {
+  return apiFetch(`/books/${encodeURIComponent(bookId)}/eps/${epsIndex}/pages`);
+}
+
+export function getReadingProgress(
+  bookId: string,
+): Promise<{ bookId: string; progress: ReadingProgress | null }> {
+  return apiFetch(`/books/${encodeURIComponent(bookId)}/progress`);
+}
+
+export function saveReadingProgress(
+  bookId: string,
+  epsIndex: number,
+  pageIndex: number,
+  title?: string,
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/books/${encodeURIComponent(bookId)}/progress`, {
+    method: "PUT",
+    body: JSON.stringify({ epsIndex, pageIndex, title }),
+  });
 }

@@ -3,6 +3,11 @@ import HomeView from "../views/HomeView.vue";
 import BookDetailView from "../views/BookDetailView.vue";
 import SearchView from "../views/SearchView.vue";
 import CategoriesView from "../views/CategoriesView.vue";
+import ReadView from "../views/ReadView.vue";
+import LoginView from "../views/LoginView.vue";
+import FavoritesView from "../views/FavoritesView.vue";
+import HistoryView from "../views/HistoryView.vue";
+import DownloadsView from "../views/DownloadsView.vue";
 
 const routes = [
   { path: "/", name: "home", component: HomeView },
@@ -12,8 +17,18 @@ const routes = [
     component: BookDetailView,
     props: true,
   },
+  {
+    path: "/read/:bookId/:epsIndex?",
+    name: "read",
+    component: ReadView,
+    props: true,
+  },
   { path: "/search", name: "search", component: SearchView },
   { path: "/categories", name: "categories", component: CategoriesView },
+  { path: "/login", name: "login", component: LoginView },
+  { path: "/favorites", name: "favorites", component: FavoritesView },
+  { path: "/history", name: "history", component: HistoryView },
+  { path: "/downloads", name: "downloads", component: DownloadsView },
 ];
 
 export const router = createRouter({

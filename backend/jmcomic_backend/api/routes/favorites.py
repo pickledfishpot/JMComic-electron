@@ -1,0 +1,89 @@
+"""收藏 API：列表 / 切换收藏 / 收藏夹管理."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
+
+from jmcomic_backend.services.jm_client import JmClient
+
+router = APIRouter(prefix="/favorites", tags=["favorites"])
+
+
+class ToggleFavoriteBody(BaseModel):
+    bookId: str = Field(min_length=1)
+
+
+class AddFolderBody(BaseModel):
+    name: str = Field(min_length=1)
+
+
+class MoveFolderBody(BaseModel):
+    bookId: str = Field(min_length=1)
+    folderId: str = Field(min_length=1)
+
+
+def _require_session(request: Request) -> None:
+    if request.app.state.session.get() is None:
+        raise HTTPException(status_code=401, detail="请先登录")
+
+
+@router.get("")
+async def get_favorites(
+    request: Request,
+    page: int = 1,
+    sort: str = "mr",
+    folderId: str = "0",
+) -> dict[str, Any]:
+    _require_session(request)
+    async with JmClient() as client:
+        try:
+            data = await client.get_favorites(page=page, sort=sort, folder_id=folderId)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to fetch favorites: {exc}") from exc
+    data["page"] = page
+    data["sort"] = sort
+    data["folderId"] = folderId
+    return data
+
+
+@router.post("")
+async def toggle_favorite(body: ToggleFavoriteBody, request: Request) -> dict[str, Any]:
+    _require_session(request)
+    async with JmClient() as client:
+        try:
+            return await client.toggle_favorite(body.bookId)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to toggle favorite: {exc}") from exc
+
+
+@router.post("/folders")
+async def add_folder(body: AddFolderBody, request: Request) -> dict[str, Any]:
+    _require_session(request)
+    async with JmClient() as client:
+        try:
+            return await client.add_favorite_folder(body.name)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to add folder: {exc}") from exc
+
+
+@router.delete("/folders/{folder_id}")
+async def delete_folder(folder_id: str, request: Request) -> dict[str, Any]:
+    _require_session(request)
+    async with JmClient() as client:
+        try:
+            return await client.delete_favorite_folder(folder_id)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to delete folder: {exc}") from exc
+
+
+@router.post("/move")
+async def move_to_folder(body: MoveFolderBody, request: Request) -> dict[str, Any]:
+    _require_session(request)
+    async with JmClient() as client:
+        try:
+            return await client.move_favorite_folder(body.bookId, body.folderId)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to move favorite: {exc}") from exc

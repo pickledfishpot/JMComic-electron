@@ -2,8 +2,10 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getIndex, type BookItem, type IndexResponse } from "../api/books";
+import { useUserStore } from "../stores/user";
 
 const router = useRouter();
+const userStore = useUserStore();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const sections = ref<IndexResponse["sections"]>({});
@@ -33,8 +35,13 @@ function goCategories() {
   router.push({ name: "categories" });
 }
 
+function go(path: string) {
+  router.push(path);
+}
+
 onMounted(() => {
   loadIndex();
+  userStore.fetchMe();
 });
 </script>
 
@@ -46,7 +53,25 @@ onMounted(() => {
       <h1 class="text-xl font-bold">JMComic</h1>
       <div class="flex gap-2">
         <button
-          class="rounded-lg bg-[#1a1a1a] px-4 py-2 text-sm hover:bg-[#252525]"
+          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
+          @click="go('/favorites')"
+        >
+          收藏
+        </button>
+        <button
+          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
+          @click="go('/history')"
+        >
+          历史
+        </button>
+        <button
+          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
+          @click="go('/downloads')"
+        >
+          下载
+        </button>
+        <button
+          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
           @click="goCategories"
         >
           分类
@@ -56,6 +81,12 @@ onMounted(() => {
           @click="goSearch"
         >
           搜索
+        </button>
+        <button
+          class="rounded-lg bg-[#1a1a1a] px-3 py-2 text-sm hover:bg-[#252525]"
+          @click="go('/login')"
+        >
+          {{ userStore.user ? userStore.user.username : "登录" }}
         </button>
       </div>
     </header>

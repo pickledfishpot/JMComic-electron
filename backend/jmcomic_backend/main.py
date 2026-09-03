@@ -16,12 +16,30 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from jmcomic_backend.api import deps
-from jmcomic_backend.api.routes import books, categories, comments, health, images, index, search, settings
+from jmcomic_backend.api.routes import (
+    auth,
+    books,
+    categories,
+    comments,
+    downloads,
+    favorites,
+    health,
+    history,
+    images,
+    index,
+    search,
+    settings,
+)
 from jmcomic_backend.api import ws
 from jmcomic_backend.core.config import API_PREFIX, DEFAULT_PORT, VERSION
 from jmcomic_backend.core.logging import configure_logging
 from jmcomic_backend.core.paths import AppPaths
 from jmcomic_backend.core.settings import AppSettings
+from jmcomic_backend.services.download_manager import DownloadManager
+from jmcomic_backend.services.history_db import HistoryStore
+from jmcomic_backend.services.image_cache import ImageDiskCache
+from jmcomic_backend.services.jm_client import set_default_cookies
+from jmcomic_backend.services.session import SessionManager
 
 
 @asynccontextmanager
@@ -29,8 +47,17 @@ async def lifespan(app: FastAPI):
     paths: AppPaths = app.state.paths
     paths.ensure_all()
     configure_logging(paths.log_dir)
+    app.state.history = HistoryStore(paths.db_dir / "app.db")
+    app.state.image_cache = ImageDiskCache(paths.cache_dir)
+    app.state.session = SessionManager(paths.data_dir / "session.json")
+    session = app.state.session.get()
+    set_default_cookies(session.cookies if session else {})
+    app.state.downloads = DownloadManager(paths.db_dir / "app.db", paths.download_dir)
+    await app.state.downloads.start()
     logging.info("JMComic backend starting, version=%s, data_dir=%s", VERSION, paths.data_dir)
     yield
+    await app.state.downloads.stop()
+    app.state.history.close()
     logging.info("JMComic backend shutting down")
 
 
@@ -60,6 +87,10 @@ def create_app(data_dir: Path) -> FastAPI:
     app.include_router(search.router, prefix=API_PREFIX)
     app.include_router(categories.router, prefix=API_PREFIX)
     app.include_router(comments.router, prefix=API_PREFIX)
+    app.include_router(auth.router, prefix=API_PREFIX)
+    app.include_router(favorites.router, prefix=API_PREFIX)
+    app.include_router(history.router, prefix=API_PREFIX)
+    app.include_router(downloads.router, prefix=API_PREFIX)
     app.include_router(images.router, prefix=API_PREFIX)
     app.include_router(ws.router)
 
