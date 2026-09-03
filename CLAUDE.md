@@ -4,7 +4,7 @@
 
 - Phase 0 ✅ 脚手架：Electron + Vue 3 + Vite + FastAPI，已 init commit。
 - Phase 1 ✅ 最小闭环：移植 `req.py/server.py/tool.py` 到 `backend/jmcomic_backend/services/jm_client.py`，实现 `/api/index` 首页推荐、`/api/books/{id}` 书籍详情、`/api/images/{path}` 图片代理；前端首页与书籍详情页可浏览。
-- Phase 2 ⏳ 搜索/分类/评论。
+- Phase 2 ✅ 搜索/分类/评论：`/api/search`、`/api/categories`、`/api/books/{id}/comments` 及对应前端页面。
 - Phase 3 ⏳ 阅读器与图片反分割。
 
 ## 关键约定

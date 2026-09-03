@@ -25,6 +25,14 @@ function openBook(book: BookItem) {
   router.push({ name: "book-detail", params: { id: book.id } });
 }
 
+function goSearch() {
+  router.push({ name: "search" });
+}
+
+function goCategories() {
+  router.push({ name: "categories" });
+}
+
 onMounted(() => {
   loadIndex();
 });
@@ -33,9 +41,23 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-[#0f0f0f] text-[#f0f0f0]">
     <header
-      class="sticky top-0 z-10 border-b border-white/10 bg-[#0f0f0f]/90 backdrop-blur px-6 py-4"
+      class="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#0f0f0f]/90 px-6 py-4 backdrop-blur"
     >
       <h1 class="text-xl font-bold">JMComic</h1>
+      <div class="flex gap-2">
+        <button
+          class="rounded-lg bg-[#1a1a1a] px-4 py-2 text-sm hover:bg-[#252525]"
+          @click="goCategories"
+        >
+          分类
+        </button>
+        <button
+          class="rounded-lg bg-[#feca57] px-4 py-2 text-sm font-medium text-[#0f0f0f] hover:bg-[#ffdb7a]"
+          @click="goSearch"
+        >
+          搜索
+        </button>
+      </div>
     </header>
 
     <main class="p-6">

@@ -177,6 +177,75 @@ def _parse_book_detail(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _parse_search(raw: dict[str, Any]) -> dict[str, Any]:
+    """移植自 tool.py ToolUtil.ParseSearch2."""
+    return {
+        "total": int(raw.get("total", 0)),
+        "books": [_parse_book_info(item) for item in raw.get("content", [])],
+    }
+
+
+def _parse_categories(raw: dict[str, Any]) -> dict[str, Any]:
+    """移植自 tool.py ToolUtil.ParseCategory2."""
+    categories: list[dict[str, Any]] = []
+    for item in raw.get("categories", []):
+        categories.append({
+            "id": item.get("id"),
+            "name": item.get("name"),
+            "slug": item.get("slug"),
+            "type": item.get("type"),
+            "total": int(item.get("total_albums", 0)),
+        })
+    blocks: dict[str, Any] = {}
+    for block in raw.get("blocks", []):
+        blocks[block.get("title", "未知")] = block.get("content", [])
+    return {"categories": categories, "blocks": blocks}
+
+
+def _parse_comment(raw: dict[str, Any]) -> dict[str, Any]:
+    """移植自 tool.py ToolUtil.ParseBookComment."""
+    comments: list[dict[str, Any]] = []
+    for item in raw.get("list", []):
+        photo = item.get("photo")
+        head_url = ""
+        if photo and photo not in ("nopic-Male.gif", "nopic-Female.gif"):
+            head_url = f"/api/images/media/users/{photo}"
+        sub_comments: list[dict[str, Any]] = []
+        for sub in item.get("replys", []):
+            sub_photo = sub.get("photo")
+            sub_head_url = ""
+            if sub_photo and sub_photo not in ("nopic-Male.gif", "nopic-Female.gif"):
+                sub_head_url = f"/api/images/media/users/{sub_photo}"
+            sub_comments.append({
+                "id": sub.get("CID"),
+                "uid": sub.get("UID"),
+                "name": sub.get("username"),
+                "title": sub.get("expinfo", {}).get("level_name"),
+                "level": sub.get("expinfo", {}).get("level"),
+                "content": sub.get("content"),
+                "headUrl": sub_head_url,
+                "like": sub.get("likes"),
+                "date": sub.get("addtime"),
+                "linkBookName": sub.get("name"),
+                "linkBookId": sub.get("AID"),
+            })
+        comments.append({
+            "id": item.get("CID"),
+            "uid": item.get("UID"),
+            "name": item.get("username"),
+            "title": item.get("expinfo", {}).get("level_name"),
+            "level": item.get("expinfo", {}).get("level"),
+            "content": item.get("content"),
+            "headUrl": head_url,
+            "like": item.get("likes"),
+            "date": item.get("addtime"),
+            "linkBookName": item.get("name"),
+            "linkBookId": item.get("AID"),
+            "subComments": sub_comments,
+        })
+    return {"total": int(raw.get("total", 0)), "comments": comments}
+
+
 class JmClient:
     """JMComic 异步 HTTP 客户端."""
 
@@ -240,6 +309,74 @@ class JmClient:
         if not isinstance(payload, dict):
             raise ValueError(f"unexpected album response type: {type(payload)}")
         return _parse_book_detail(payload)
+
+    async def search(self, query: str, page: int = 1, sort: str = "mr") -> dict[str, Any]:
+        """搜索本子.
+
+        sort 可选值: mr(最新), mv(最多点击), mp(最多图片), tf(最多爱心).
+        """
+        ts = str(int(time.time()))
+        params: dict[str, Any] = {"search_query": query}
+        if page > 1:
+            params["page"] = str(page)
+        if sort:
+            params["o"] = sort
+        url = _api_url("/search", params, self.api_index)
+        headers = _build_headers(int(ts))
+        logger.debug("GET %s", url)
+        response = await self._request_with_retry("GET", url, headers=headers)
+        payload = _decode_response(response.json(), ts)
+        if not isinstance(payload, dict):
+            raise ValueError(f"unexpected search response type: {type(payload)}")
+        return _parse_search(payload)
+
+    async def get_categories(self) -> dict[str, Any]:
+        """获取分类列表与推荐区块."""
+        ts = str(int(time.time()))
+        url = _api_url("/categories", {}, self.api_index)
+        headers = _build_headers(int(ts))
+        logger.debug("GET %s", url)
+        response = await self._request_with_retry("GET", url, headers=headers)
+        payload = _decode_response(response.json(), ts)
+        if not isinstance(payload, dict):
+            raise ValueError(f"unexpected categories response type: {type(payload)}")
+        return _parse_categories(payload)
+
+    async def get_category_books(self, category: str = "0", page: int = 1, sort: str = "mr") -> dict[str, Any]:
+        """按分类筛选本子.
+
+        category 可选值: 0(全部), doujin, single, short, another, hanman, meiman, doujin_cosplay, 3D.
+        sort 可选值: mr, mv, mv_m, mv_w, mv_t, mp, tf.
+        """
+        ts = str(int(time.time()))
+        params: dict[str, Any] = {}
+        if page > 1:
+            params["page"] = str(page)
+        if sort:
+            params["o"] = sort
+        if category:
+            params["c"] = category
+        url = _api_url("/categories/filter", params, self.api_index)
+        headers = _build_headers(int(ts))
+        logger.debug("GET %s", url)
+        response = await self._request_with_retry("GET", url, headers=headers)
+        payload = _decode_response(response.json(), ts)
+        if not isinstance(payload, dict):
+            raise ValueError(f"unexpected category books response type: {type(payload)}")
+        return _parse_search(payload)
+
+    async def get_book_comments(self, book_id: str | int, page: int = 1) -> dict[str, Any]:
+        """获取书籍评论."""
+        ts = str(int(time.time()))
+        params: dict[str, Any] = {"mode": "manhua", "aid": str(book_id), "page": str(page)}
+        url = _api_url("/forum", params, self.api_index)
+        headers = _build_headers(int(ts))
+        logger.debug("GET %s", url)
+        response = await self._request_with_retry("GET", url, headers=headers)
+        payload = _decode_response(response.json(), ts)
+        if not isinstance(payload, dict):
+            raise ValueError(f"unexpected comments response type: {type(payload)}")
+        return _parse_comment(payload)
 
     async def fetch_image(self, path: str) -> tuple[bytes, str]:
         """拉取远端图片，返回 (bytes, content_type)."""

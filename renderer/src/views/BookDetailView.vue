@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getBookDetail, type BookDetail } from "../api/books";
+import {
+  getBookDetail,
+  getBookComments,
+  type BookDetail,
+  type CommentsResponse,
+} from "../api/books";
 
 const props = defineProps<{ id: string }>();
 const router = useRouter();
@@ -10,15 +15,32 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const book = ref<BookDetail | null>(null);
 
+const commentsLoading = ref(false);
+const commentsError = ref<string | null>(null);
+const commentsResult = ref<CommentsResponse | null>(null);
+
 async function loadDetail() {
   loading.value = true;
   error.value = null;
   try {
     book.value = await getBookDetail(props.id);
+    await loadComments();
   } catch (err) {
     error.value = String(err);
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadComments(page = 1) {
+  commentsLoading.value = true;
+  commentsError.value = null;
+  try {
+    commentsResult.value = await getBookComments(props.id, page);
+  } catch (err) {
+    commentsError.value = String(err);
+  } finally {
+    commentsLoading.value = false;
   }
 }
 
@@ -59,7 +81,7 @@ watch(() => props.id, loadDetail, { immediate: true });
         </button>
       </div>
 
-      <div v-else-if="book" class="mx-auto max-w-4xl">
+      <div v-else-if="book" class="mx-auto max-w-4xl space-y-8">
         <div class="flex flex-col gap-6 md:flex-row">
           <div class="w-full shrink-0 md:w-64">
             <div class="aspect-[3/4] overflow-hidden rounded-xl bg-gray-800">
@@ -111,6 +133,90 @@ watch(() => props.id, loadDetail, { immediate: true });
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="border-t border-white/10 pt-8">
+          <h3 class="mb-4 font-semibold">
+            评论
+            <span v-if="book.commentTotal" class="ml-2 text-sm text-gray-500">
+              ({{ book.commentTotal }})
+            </span>
+          </h3>
+
+          <div v-if="commentsLoading" class="py-10 text-center text-gray-400">
+            加载评论中...
+          </div>
+          <div v-else-if="commentsError" class="py-10 text-center text-red-400">
+            <p>{{ commentsError }}</p>
+            <button
+              class="mt-2 rounded-lg bg-red-500/20 px-4 py-2 text-sm text-red-300 hover:bg-red-500/30"
+              @click="loadComments()"
+            >
+              重试
+            </button>
+          </div>
+
+          <div v-else-if="commentsResult" class="space-y-4">
+            <div
+              v-for="comment in commentsResult.comments"
+              :key="comment.id"
+              class="rounded-xl bg-[#1a1a1a] p-4"
+            >
+              <div class="flex items-start gap-3">
+                <img
+                  v-if="comment.headUrl"
+                  :src="comment.headUrl"
+                  class="h-10 w-10 rounded-full object-cover"
+                />
+                <div
+                  v-else
+                  class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm"
+                >
+                  {{ comment.name?.[0] || "?" }}
+                </div>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 text-sm">
+                    <span class="font-medium">{{ comment.name }}</span>
+                    <span v-if="comment.title" class="text-xs text-[#feca57]">{{
+                      comment.title
+                    }}</span>
+                    <span v-if="comment.date" class="text-xs text-gray-500">{{
+                      comment.date
+                    }}</span>
+                  </div>
+                  <p class="mt-2 text-sm text-gray-300">
+                    {{ comment.content }}
+                  </p>
+
+                  <div
+                    v-if="comment.subComments.length"
+                    class="mt-3 space-y-2 pl-4"
+                  >
+                    <div
+                      v-for="sub in comment.subComments"
+                      :key="sub.id"
+                      class="rounded-lg bg-[#0f0f0f] p-3 text-sm"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium">{{ sub.name }}</span>
+                        <span v-if="sub.title" class="text-xs text-[#feca57]">{{
+                          sub.title
+                        }}</span>
+                      </div>
+                      <p class="mt-1 text-gray-400">{{ sub.content }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p
+              v-if="commentsResult.comments.length === 0"
+              class="py-10 text-center text-gray-500"
+            >
+              暂无评论
+            </p>
           </div>
         </div>
       </div>
