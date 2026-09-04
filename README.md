@@ -38,7 +38,7 @@ pnpm dist:linux     # Linux AppImage/deb
 
 ## 功能与进度
 
-Phase 0-6 全部完成：浏览/搜索/分类/评论 → 阅读器（反分割、翻页/滚动、进度恢复）→ 登录/收藏/历史/下载队列 → 本地图库（离线阅读）/代理/DNS 工具 → 单实例/托盘/窗口状态持久化/三平台安装包。详见 [`docs/architecture.md`](docs/architecture.md)。
+Phase 0-6 全部完成：浏览/搜索/分类/评论 → 阅读器（反分割、翻页/滚动、进度恢复）→ 登录/收藏/历史/下载队列 → 本地图库（离线阅读）/代理/DNS 工具 → 单实例/托盘/窗口状态持久化/三平台安装包。文档索引见 [`docs/README.md`](docs/README.md)（架构、API、JM 适配笔记、打包发布、CHANGELOG）。
 
 ## 参考项目
 
