@@ -30,15 +30,17 @@ class ImageDiskCache:
         """返回该图片的异步锁，调用方需持有锁后再 get/set."""
         key = self._key(identifier)
         with self._async_locks_guard:
-            lock = self._async_locks.get(key)
-            if lock is None:
-                lock = asyncio.Lock()
-                self._async_locks[key] = lock
-            # 长期翻页会让锁表无限增长；超限时回收已释放的锁
+            # 长期翻页会让锁表无限增长；超限时回收已释放的锁。
+            # 必须先清扫再取锁：刚创建还没 acquire 的新锁若赶上清扫会被
+            # 当场逐出，之后同图请求拿到另一把锁，single-flight 失效
             if len(self._async_locks) > 512:
                 self._async_locks = {
                     k: v for k, v in self._async_locks.items() if v.locked()
                 }
+            lock = self._async_locks.get(key)
+            if lock is None:
+                lock = asyncio.Lock()
+                self._async_locks[key] = lock
             return lock
 
     def get(self, identifier: str) -> tuple[bytes, str] | None:
