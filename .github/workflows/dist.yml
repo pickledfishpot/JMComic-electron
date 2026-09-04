@@ -1,12 +1,10 @@
 name: dist
 
 on:
-  # 手动触发
+  # 手动触发（不发 Release，仅出 artifacts）
   workflow_dispatch:
-  # push 到 main 自动打包
+  # 打 tag（v*）自动打包并发 Release
   push:
-    branches:
-      - main
     tags:
       - "v*"
 
