@@ -20,13 +20,16 @@ jobs:
           - os: windows-latest
             eb_target: win
             label: windows
-          - os: macos-latest
-            eb_target: mac
-            label: macos-arm64
-          - os: ubuntu-latest
-            eb_target: linux
-            label: linux
+          # - os: macos-latest
+          #   eb_target: mac
+          #   label: macos-arm64
+          # - os: ubuntu-latest
+          #   eb_target: linux
+          #   label: linux
     runs-on: ${{ matrix.os }}
+    permissions:
+      # 打 tag 时创建 Release 并上传产物需要写权限
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -74,3 +77,14 @@ jobs:
           name: jmcomic-${{ matrix.label }}
           path: dist/installers/**
           if-no-files-found: error
+
+      # 打 tag（v*）时把安装包发布到 GitHub Release（草稿，人工核对后发布）
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: dist/installers/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
