@@ -75,11 +75,16 @@ def create_app(data_dir: Path) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS: dev 走 localhost；打包后渲染层从 file:// 加载，
-    # 会话完全在服务端（无 Cookie），本机单用户场景下放开 origin 限制即可
+    # CORS 白名单：打包后渲染层从 file:// 加载，fetch 的 Origin 为 "null"；
+    # dev 走 vite 代理属同源，仅保留 localhost 兜底。不能用正则全放开——
+    # 会话在服务端无凭证要求，任意网页都能 fetch 本机后端读收藏/触发下载
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=".*",
+        allow_origins=[
+            "null",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ],
         allow_methods=["*"],
         allow_headers=["*"],
     )
