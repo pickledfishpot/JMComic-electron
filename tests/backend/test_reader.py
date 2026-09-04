@@ -71,26 +71,27 @@ class TestSegmentationNum:
         assert get_segmentation_num(230000, 220980, "00001") == 10
 
     def test_mid_range_md5(self):
-        # 268850 <= epsId <= 421926 时按 md5 %8 计算
+        # 268850 <= epsId <= 421926 时按 md5 %10 计算
         eps_id = 300000
         name = "00001"
-        digest = hashlib.md5(f"{eps_id}{name}".encode()).hexdigest()
-        expected = (ord(digest[-1]) % 8) * 2 + 2
-        assert get_segmentation_num(eps_id, 1, name) == expected
-
-    def test_high_range_md5(self):
-        eps_id = 500000
-        name = "00012"
         digest = hashlib.md5(f"{eps_id}{name}".encode()).hexdigest()
         expected = (ord(digest[-1]) % 10) * 2 + 2
         assert get_segmentation_num(eps_id, 1, name) == expected
 
+    def test_high_range_md5(self):
+        # epsId > 421926 时按 md5 %8 计算
+        eps_id = 500000
+        name = "00012"
+        digest = hashlib.md5(f"{eps_id}{name}".encode()).hexdigest()
+        expected = (ord(digest[-1]) % 8) * 2 + 2
+        assert get_segmentation_num(eps_id, 1, name) == expected
+
     def test_legacy_high_range_md5(self):
-        # 421926 及以前的高段为 %8
+        # 421926 及以前的高段为 %10
         eps_id = 400000
         name = "00003"
         digest = hashlib.md5(f"{eps_id}{name}".encode()).hexdigest()
-        expected = (ord(digest[-1]) % 8) * 2 + 2
+        expected = (ord(digest[-1]) % 10) * 2 + 2
         assert get_segmentation_num(eps_id, 1, name) == expected
 
 

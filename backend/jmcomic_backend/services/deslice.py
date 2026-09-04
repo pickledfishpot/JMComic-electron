@@ -43,10 +43,10 @@ def get_segmentation_num(eps_id: str | int, scramble_id: str | int, picture_name
     digest = hashlib.md5((str(eps_id) + picture_name).encode()).hexdigest()
     last = ord(digest[-1])
     if eps_id > 421926:
-        # num = (md5 末位字符码 % 10) * 2 + 2
-        return (last % 10) * 2 + 2
-    # num = (md5 末位字符码 % 8) * 2 + 2
-    return (last % 8) * 2 + 2
+        # num = (md5 末位字符码 % 8) * 2 + 2
+        return (last % 8) * 2 + 2
+    # num = (md5 末位字符码 % 10) * 2 + 2
+    return (last % 10) * 2 + 2
 
 
 def deslice_image(
