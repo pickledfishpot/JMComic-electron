@@ -137,6 +137,33 @@ def test_manager_status_transitions(tmp_path):
     manager.close()
 
 
+def test_parse_normalizes_int_ids():
+    """上游 JM 返回的 id 是 int，parse 层必须规范成 str.
+
+    否则前端把详情页拿到的 id 原样回传给 /downloads/start，
+    pydantic 的 bookId: str 校验会直接 422（2026-09-04 Windows 实测踩过）.
+    """
+    from jmcomic_backend.services.jm_client import (
+        _parse_book_detail,
+        _parse_book_info,
+    )
+
+    detail = _parse_book_detail({
+        "id": 1442273,
+        "name": "x",
+        "series": [{"id": 999, "name": "第1话", "sort": 1}],
+    })
+    assert detail["id"] == "1442273"
+    assert detail["eps"][0]["epsId"] == "999"
+
+    # 无 series 时 epsId 回退为书籍自身 id
+    single = _parse_book_detail({"id": 1442273, "name": "x"})
+    assert single["eps"][0]["epsId"] == "1442273"
+
+    info = _parse_book_info({"id": 123, "name": "x"})
+    assert info["id"] == "123"
+
+
 def test_manager_error_path(tmp_path):
     """下载中途失败应记录 error 状态，可 retry."""
     app = create_app(tmp_path)

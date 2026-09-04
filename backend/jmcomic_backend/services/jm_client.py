@@ -141,7 +141,8 @@ def _decode_response(payload: Any, ts: str) -> Any:
 
 def _parse_book_info(raw: dict[str, Any]) -> dict[str, Any]:
     """移植自 tool.py ToolUtil.ParseBookInfo，精简字段."""
-    book_id = raw.get("id")
+    # 上游 id 可能是 int；统一转 str，保证回传给 API 的 bookId 能过 pydantic 校验
+    book_id = str(raw.get("id"))
     category = raw.get("category", {}) or {}
     sub_category = raw.get("category_sub", {}) or {}
     categories: list[str] = []
@@ -180,14 +181,15 @@ def _parse_index(raw: Any) -> dict[str, list[dict[str, Any]]]:
 
 def _parse_book_detail(raw: dict[str, Any]) -> dict[str, Any]:
     """移植自 tool.py ToolUtil.ParseBookInfo2，增加 eps 列表."""
-    book_id = raw.get("id")
+    # 同 _parse_book_info：上游 id 是 int，统一转 str
+    book_id = str(raw.get("id"))
     series = raw.get("series", []) or []
     eps: list[dict[str, Any]] = []
     if series:
         for idx, item in enumerate(series):
             eps.append({
                 "index": idx,
-                "epsId": item.get("id"),
+                "epsId": str(item.get("id")),
                 "name": item.get("name"),
                 "sort": int(item.get("sort", 0)),
             })
@@ -231,7 +233,7 @@ def _parse_categories(raw: dict[str, Any]) -> dict[str, Any]:
     categories: list[dict[str, Any]] = []
     for item in raw.get("categories", []):
         categories.append({
-            "id": item.get("id"),
+            "id": str(item.get("id")),
             "name": item.get("name"),
             "slug": item.get("slug"),
             "type": item.get("type"),
