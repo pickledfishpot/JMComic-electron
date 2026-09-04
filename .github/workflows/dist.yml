@@ -78,13 +78,20 @@ jobs:
           path: dist/installers/**
           if-no-files-found: error
 
-      # 打 tag（v*）时把安装包发布到 GitHub Release（草稿，人工核对后发布）
+      # 打 tag（v*）时把安装包发布到 GitHub Release（草稿，人工核对后发布）。
+      # 只传安装包本体，不能 dist/installers/**——那会把 win-unpacked/ 整目录
+      # （几百个 dll/exe/pyd）全部当资产传上去
       - name: Upload to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           draft: true
           generate_release_notes: true
-          files: dist/installers/**
+          files: |
+            dist/installers/*.zip
+            dist/installers/*.dmg
+            dist/installers/*.exe
+            dist/installers/*.AppImage
+            dist/installers/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
