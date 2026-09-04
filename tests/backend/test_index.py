@@ -160,3 +160,14 @@ def test_get_book_comments(client):
     assert data["bookId"] == "123456"
     assert data["total"] == 1
     assert data["comments"][0]["content"] == "测试评论"
+
+
+def test_clean_comment_text():
+    """评论富文本清洗：剥标签、br 转换行、还原 HTML 转义（2026-09-04 Windows 实测评论带 div）."""
+    from jmcomic_backend.services.jm_client import _clean_comment_text
+
+    assert _clean_comment_text("<div stype='flex-derection:row;flex-wrap:wrap;'>评论内容</div>") == "评论内容"
+    assert _clean_comment_text("你好<br/>世界") == "你好\n世界"
+    assert _clean_comment_text("a &amp; b &lt;3") == "a & b <3"
+    assert _clean_comment_text(None) is None
+    assert _clean_comment_text("  纯文本  ") == "纯文本"

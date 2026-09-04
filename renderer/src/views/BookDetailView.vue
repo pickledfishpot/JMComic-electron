@@ -290,7 +290,8 @@ watch(() => props.id, loadDetail, { immediate: true });
                       comment.date
                     }}</span>
                   </div>
-                  <p class="mt-2 text-sm text-body">
+                  <!-- whitespace-pre-line：评论里的 <br> 已在后端转成换行符 -->
+                  <p class="mt-2 whitespace-pre-line text-sm text-body">
                     {{ comment.content }}
                   </p>
 
@@ -311,7 +312,7 @@ watch(() => props.id, loadDetail, { immediate: true });
                           >{{ sub.title }}</span
                         >
                       </div>
-                      <p class="mt-1 text-muted">{{ sub.content }}</p>
+                      <p class="mt-1 whitespace-pre-line text-muted">{{ sub.content }}</p>
                     </div>
                   </div>
                 </div>

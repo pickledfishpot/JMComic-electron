@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import html
 import json
 import logging
 import re
@@ -313,6 +314,21 @@ def _parse_msg(raw: Any) -> dict[str, Any]:
     return {"ok": False, "message": ""}
 
 
+_BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _clean_comment_text(text: Any) -> Any:
+    """评论内容是 JM 上游富文本（如 <div style='...'>xxx</div>），剥掉标签并还原转义.
+
+    <br> 保留为换行，其余标签直接丢弃；非字符串（None 等）原样返回.
+    """
+    if not isinstance(text, str):
+        return text
+    text = _TAG_RE.sub("", _BR_RE.sub("\n", text))
+    return html.unescape(text).strip()
+
+
 def _parse_comment(raw: dict[str, Any]) -> dict[str, Any]:
     """移植自 tool.py ToolUtil.ParseBookComment."""
     comments: list[dict[str, Any]] = []
@@ -333,7 +349,7 @@ def _parse_comment(raw: dict[str, Any]) -> dict[str, Any]:
                 "name": sub.get("username"),
                 "title": sub.get("expinfo", {}).get("level_name"),
                 "level": sub.get("expinfo", {}).get("level"),
-                "content": sub.get("content"),
+                "content": _clean_comment_text(sub.get("content")),
                 "headUrl": sub_head_url,
                 "like": sub.get("likes"),
                 "date": sub.get("addtime"),
@@ -346,7 +362,7 @@ def _parse_comment(raw: dict[str, Any]) -> dict[str, Any]:
             "name": item.get("username"),
             "title": item.get("expinfo", {}).get("level_name"),
             "level": item.get("expinfo", {}).get("level"),
-            "content": item.get("content"),
+            "content": _clean_comment_text(item.get("content")),
             "headUrl": head_url,
             "like": item.get("likes"),
             "date": item.get("addtime"),
