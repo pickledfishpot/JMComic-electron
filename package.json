@@ -1,6 +1,6 @@
 {
   "name": "jmcomic-electron",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "基于 Electron + Vue 3 + TypeScript 的桌面漫画阅读客户端",
   "author": "jpacg",
   "private": true,
