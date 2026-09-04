@@ -31,11 +31,9 @@ def _require_session(request: Request) -> None:
 
 
 def _wrap(exc: Exception, action: str) -> HTTPException:
-    """JM 业务层返回的「请先登录」映射为 401，其余上游错误为 502，
+    """JM 业务层返回的未登录错误映射为 401，其余上游错误为 502，
     让前端能区分「需要重新登录」与「服务器故障」."""
-    if isinstance(exc, JmApiError) and (
-        "登录" in str(exc) or "login" in str(exc).lower()
-    ):
+    if isinstance(exc, JmApiError) and exc.is_auth_error:
         return HTTPException(status_code=401, detail=str(exc))
     return HTTPException(status_code=502, detail=f"Failed to {action}: {exc}")
 

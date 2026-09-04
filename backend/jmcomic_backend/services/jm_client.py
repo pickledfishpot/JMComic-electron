@@ -63,7 +63,22 @@ def set_default_proxy(proxy_url: str) -> None:
 
 
 class JmApiError(Exception):
-    """JM API 返回业务错误（code != 200 等）."""
+    """JM API 返回业务错误（code != 200 等）.
+
+    message 为上游错误文案，code 为上游响应里的 code 字段（可能缺失）.
+    """
+
+    def __init__(self, message: str, code: int | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+
+    @property
+    def is_auth_error(self) -> bool:
+        """是否未登录 / 登录态失效：优先看上游 code，退化到错误文案."""
+        if self.code == 401:
+            return True
+        text = str(self).lower()
+        return "登录" in text or "login" in text
 
 
 def _dict_to_url(params: dict[str, Any]) -> str:
@@ -501,7 +516,8 @@ class JmClient:
         payload = response.json()
         if isinstance(payload, dict) and payload.get("code") != 200:
             raise JmApiError(
-                str(payload.get("errorMsg") or payload.get("message") or f"code={payload.get('code')}")
+                str(payload.get("errorMsg") or payload.get("message") or f"code={payload.get('code')}"),
+                code=payload.get("code"),
             )
         return _decode_response(payload, ts)
 
@@ -517,7 +533,8 @@ class JmClient:
         payload = response.json()
         if isinstance(payload, dict) and payload.get("code") != 200:
             raise JmApiError(
-                str(payload.get("errorMsg") or payload.get("message") or f"code={payload.get('code')}")
+                str(payload.get("errorMsg") or payload.get("message") or f"code={payload.get('code')}"),
+                code=payload.get("code"),
             )
         return _decode_response(payload, ts)
 
@@ -536,7 +553,8 @@ class JmClient:
                     (payload or {}).get("errorMsg")
                     or (payload or {}).get("message")
                     or "登录失败，请检查用户名或密码"
-                )
+                ),
+                code=(payload or {}).get("code") if isinstance(payload, dict) else None,
             )
         data = _decode_response(payload, ts)
         if not isinstance(data, dict):
