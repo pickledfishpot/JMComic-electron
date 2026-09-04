@@ -73,8 +73,8 @@ onMounted(async () => {
     await userStore.fetchMe();
   }
   if (!userStore.user) {
-    // 用 replace 避免「收藏 → 登录 → 返回」形成回退循环
-    router.replace("/login");
+    // push 保留收藏页历史：登录成功后 goBack() 能回到本页并加载列表
+    router.push("/login");
     return;
   }
   load(1);

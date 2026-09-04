@@ -53,7 +53,8 @@ async function loadDetail() {
     if (seq !== detailReqSeq) return; // 已切换到新书籍，丢弃过期响应
     book.value = detail;
     progress.value = progressRes.progress;
-    await loadComments(seq);
+    // 注意第一个参数是评论页码，seq 要按关键字位传
+    await loadComments(1, seq);
   } catch (err) {
     if (seq === detailReqSeq) error.value = String(err);
   } finally {
@@ -82,8 +83,8 @@ function startReading(epsIndex?: number) {
 
 async function toggleFav() {
   if (!userStore.user) {
-    // 用 replace 避免「详情 → 登录 → 返回」形成回退循环
-    router.replace("/login");
+    // push 保留详情页历史：登录成功后 goBack() 能回到本书页
+    router.push("/login");
     return;
   }
   if (!book.value) return;
@@ -123,7 +124,12 @@ watch(() => props.id, loadDetail, { immediate: true });
 
     <main class="p-6">
       <StateBlock v-if="loading" type="loading" />
-      <StateBlock v-else-if="error" type="error" :message="error" @retry="loadDetail">
+      <StateBlock
+        v-else-if="error"
+        type="error"
+        :message="error"
+        @retry="loadDetail"
+      >
         <p class="mt-2 text-sm text-muted-soft">
           JM 服务器不太稳定，若重试三次仍失败，可能是对方服务器问题。
         </p>
@@ -132,7 +138,9 @@ watch(() => props.id, loadDetail, { immediate: true });
       <div v-else-if="book" class="mx-auto max-w-4xl space-y-8">
         <div class="flex flex-col gap-6 md:flex-row">
           <div class="w-full shrink-0 md:w-64">
-            <div class="aspect-[3/4] overflow-hidden rounded-xl bg-surface-strong">
+            <div
+              class="aspect-[3/4] overflow-hidden rounded-xl bg-surface-strong"
+            >
               <img
                 :src="assetUrl(book.coverUrl)"
                 :alt="book.title"
@@ -273,9 +281,11 @@ watch(() => props.id, loadDetail, { immediate: true });
                 <div class="flex-1">
                   <div class="flex items-center gap-2 text-sm">
                     <span class="font-medium">{{ comment.name }}</span>
-                    <span v-if="comment.title" class="text-xs text-brand-coral">{{
-                      comment.title
-                    }}</span>
+                    <span
+                      v-if="comment.title"
+                      class="text-xs text-brand-coral"
+                      >{{ comment.title }}</span
+                    >
                     <span v-if="comment.date" class="text-xs text-muted-soft">{{
                       comment.date
                     }}</span>
@@ -295,9 +305,11 @@ watch(() => props.id, loadDetail, { immediate: true });
                     >
                       <div class="flex items-center gap-2">
                         <span class="font-medium">{{ sub.name }}</span>
-                        <span v-if="sub.title" class="text-xs text-brand-coral">{{
-                          sub.title
-                        }}</span>
+                        <span
+                          v-if="sub.title"
+                          class="text-xs text-brand-coral"
+                          >{{ sub.title }}</span
+                        >
                       </div>
                       <p class="mt-1 text-muted">{{ sub.content }}</p>
                     </div>
