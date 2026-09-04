@@ -104,7 +104,6 @@ JMComic-electron/
 │       │       ├── comments.py
 │       │       ├── history.py
 │       │       ├── local.py
-│       │       ├── nas.py
 │       │       ├── settings.py
 │       │       ├── tasks.py
 │       │       └── waifu2x.py
@@ -123,7 +122,6 @@ JMComic-electron/
 │       │   ├── download_manager.py
 │       │   ├── waifu2x_service.py
 │       │   ├── local_library.py
-│       │   ├── nas_service.py
 │       │   └── event_bus.py
 │       ├── tasks/
 │       └── db/
@@ -131,7 +129,6 @@ JMComic-electron/
 │           ├── download_db.py
 │           ├── local_favorite_db.py
 │           ├── local_read_db.py
-│           ├── nas_db.py
 │           └── batch_sr_tool_db.py
 ├── resources/
 │   ├── icons/
@@ -189,13 +186,11 @@ JMComic-electron/
 - `DELETE /api/downloads/{id}`（同时删除已下载文件）
 - 任务持久化 `download_tasks` 表；worker 单循环串行执行，任务内 4 并发拉页，逐页反分割写入 `download_dir/{book_id}/{章节:03d}/{页:04d}.{ext}`；已存在的页自动跳过（重试 = 断点续传）；进程重启后 downloading 任务自动重新排队
 
-### 5.7 本地 / NAS / 工具
+### 5.7 本地 / 工具
 - `POST /api/local/scan` / `GET /api/local/books` → 扫描 downloads 与设置 `local.dirs` 中的额外目录；支持目录本（子目录各成一话合并为一本）、zip/cbz 压缩本（内部图片最多的一组为一话）
 - `GET /api/local/books/{id}` / `GET /api/local/books/{id}/eps/{idx}/pages` → 分页结构与远端一致，url 指向 `/api/local/images/{id}/{eps}/{page}`
 - `GET /api/local/images/{book_id}/{eps_index}/{page_index}` → 本地文件/zip 内图片原始字节
 - `GET/PUT /api/local/books/{id}/progress` → 复用 read_history 表，book_id 加 `local:` 前缀（普通历史页过滤该前缀）
-- `GET/POST/PUT/DELETE /api/nas` → NAS 配置 CRUD（SQLite nas_configs 表，列表不回显密码明文）
-- `POST /api/nas/{id}/test` / `POST /api/nas/{id}/upload` → 连接测试 / 上传已下载书籍目录到 `remote_path/{书名}/`；webdav 用 httpx 原生 MKCOL/PUT，local 为本地目录拷贝备份，smb 需 smbprotocol（未装时明确报错）
 - `GET /api/tools/waifu2x/status` / `POST /api/tools/waifu2x/convert` → sr_vulkan 懒加载探测，不可用时 status.available=false、convert 503，前端隐藏入口
 - `POST /api/tools/dns/resolve` / `GET /api/tools/proxy/test` → DNS 解析（getaddrinfo）/ 代理连通性测试（使用设置中的代理配置）
 - 代理设置：PUT /api/settings 保存后即时写入 JmClient 全局默认代理（http/https/socks5 取第一个非空）
@@ -250,7 +245,6 @@ JMComic-electron/
 | `src/task/task_multi.py` | 保留 | ProcessPoolExecutor 调用 |
 | `src/task/task_waifu2x.py` | `services/waifu2x_service.py` | sr_vulkan 懒加载，不可用时前端隐藏 |
 | `src/task/task_local.py` | `services/local_library.py` | natsort 用自然排序键替代；signal 改 REST |
-| `src/task/task_upload.py` + `upload_webdav.py` | `services/nas_manager.py` | webdavclient3 用 httpx 原生替代；配置改 SQLite |
 | DB 类 | `db/*.py` | QSqlDatabase 改为 sqlite3 |
 
 ## 8. 打包策略
@@ -271,7 +265,7 @@ JMComic-electron/
 | **2. 搜索/分类/评论** ✅ | 搜索/分类/评论 API 与前端页面 | 浏览可用 |
 | **3. 阅读器** ✅ | 图片拉取/反分割（PIL 移植 tool.py）、翻页/滚动模式、相邻页预加载、快捷键、进度条、阅读历史 SQLite | 可流畅阅读，进度可恢复 |
 | **4. 用户/收藏/下载** ✅ | 登录/注册/验证码、cookie 会话持久化、收藏列表与切换、本地历史、下载队列（SQLite + 反分割落盘 + 暂停/重试） | 下载可持久化 |
-| **5. 超分/本地/NAS/工具** ✅ | 本地图库（目录本/zip 扫描 + 离线阅读 + 独立进度）、代理接入 JmClient + 代理测试/DNS 工具、Waifu2x 懒加载探测（不可用时隐藏）、NAS 配置 CRUD + WebDAV/本地备份上传 | 高级功能完成 |
+| **5. 超分/本地/工具** ✅ | 本地图库（目录本/zip 扫描 + 离线阅读 + 独立进度）、代理接入 JmClient + 代理测试/DNS 工具、Waifu2x 懒加载探测（不可用时隐藏） | 高级功能完成 |
 | **6. 原生外壳与打包** ✅ | 单实例锁、系统托盘（关闭到托盘）、窗口状态持久化、Pillow 生成三平台图标、PyInstaller 后端打包（冻结尾已验证）、electron-builder dmg/nsis/AppImage | 三平台安装包 |
 
 ## 10. 主要风险与缓解

@@ -45,6 +45,8 @@ class HistoryStore:
             self._conn.execute(
                 "ALTER TABLE read_history ADD COLUMN title TEXT NOT NULL DEFAULT ''"
             )
+        # 一次性清理：NAS 功能已删除（724ca3a），遗留的 nas_configs 表存明文密码
+        self._conn.execute("DROP TABLE IF EXISTS nas_configs")
 
     def get_progress(self, book_id: str) -> dict[str, Any] | None:
         with self._lock:
