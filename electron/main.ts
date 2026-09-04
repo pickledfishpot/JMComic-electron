@@ -127,6 +127,11 @@ function createTray() {
 
 async function createMainWindow(): Promise<BrowserWindow> {
   const state: WindowState = loadWindowState(getDefaultDataDir());
+  // Windows/Linux：去掉窗口顶部的默认菜单栏（File/Edit/View...）
+  // macOS 保留系统菜单栏，否则 Cmd+C/V 等编辑快捷键会失效
+  if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(null);
+  }
   const win = new BrowserWindow({
     width: state.width,
     height: state.height,
