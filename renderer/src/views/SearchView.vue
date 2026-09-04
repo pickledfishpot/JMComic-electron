@@ -19,6 +19,9 @@ const sort = ref(String(route.query.sort || "mr"));
 const loading = ref(false);
 const error = ref<string | null>(null);
 const result = ref<SearchResponse | null>(null);
+// 观察到的每页最大条数，作为 pageSize 估算值（JM 页大小由服务端固定，
+// 尾页不满员时不能用当前页条数当 pageSize，否则会多放出空白页）
+const pageSize = ref(0);
 // 搜索请求序号：关键词/页码快速变化时，仅采纳最新一次响应
 let searchReqSeq = 0;
 
@@ -38,13 +41,10 @@ async function loadSearch() {
   loading.value = true;
   error.value = null;
   try {
-    const res = await searchBooks(
-      query.value.trim(),
-      page.value,
-      sort.value,
-    );
+    const res = await searchBooks(query.value.trim(), page.value, sort.value);
     if (seq !== searchReqSeq) return; // 过期响应
     result.value = res;
+    if (res.books.length > pageSize.value) pageSize.value = res.books.length;
   } catch (err) {
     if (seq === searchReqSeq) error.value = String(err);
   } finally {
@@ -165,7 +165,10 @@ watch(
           <span class="px-4 py-2 text-sm text-muted">第 {{ page }} 页</span>
           <button
             class="rounded-md border border-hairline bg-canvas px-4 py-2 text-sm font-medium transition hover:bg-surface-soft disabled:opacity-50"
-            :disabled="result.books.length === 0 || page * result.books.length >= result.total"
+            :disabled="
+              result.books.length === 0 ||
+              (pageSize > 0 && page * pageSize >= result.total)
+            "
             @click="changePage(page + 1)"
           >
             下一页
