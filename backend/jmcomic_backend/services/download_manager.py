@@ -15,6 +15,7 @@ import sqlite3
 import threading
 import time
 import uuid
+from concurrent.futures import Future
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +72,8 @@ class DownloadManager:
         self._active: set[str] = set()
         # 被 remove() 标记删除的任务：worker 读到后立刻停止写入并退出
         self._cancelled: set[str] = set()
+        # remove() 触发的后台目录删除：重建同目录任务时必须等它结束
+        self._dir_deleting: dict[Path, Future[None]] = {}
         with self._lock:
             self._conn.execute(_SCHEMA)
             # 上次进程退出时遗留的 downloading 任务重新排队
@@ -164,14 +167,23 @@ class DownloadManager:
                 "DELETE FROM download_tasks WHERE id = ?", (task_id,)
             )
             self._conn.commit()
-        # 若在下载中，通知 worker 停止写入（在途页请求自然结束后退出）
-        self._cancelled.add(task_id)
+        # 只有 worker 正在执行的任务才需要取消标记；pending 任务删行即可，
+        # 否则没机会进 _run_task 的 finally，id 会在 _cancelled 里永久泄漏
+        if task_id in self._active:
+            self._cancelled.add(task_id)
         eps_dir = self._eps_dir(task["book_id"], task["eps_index"])
-        # 后台删除文件，不阻塞请求；无事件循环时同步删除
+        # 后台删除文件，不阻塞请求；无事件循环时同步删除。
+        # 登记删除 future，重建同目录任务时 _run_task 等它结束，避免边删边写
         try:
-            asyncio.get_running_loop().run_in_executor(None, self._rmtree, eps_dir)
+            loop = asyncio.get_running_loop()
         except RuntimeError:
             self._rmtree(eps_dir)
+        else:
+            future: Future[None] = loop.run_in_executor(None, self._rmtree, eps_dir)
+            self._dir_deleting[eps_dir] = future
+            future.add_done_callback(
+                lambda _f, d=eps_dir: self._dir_deleting.pop(d, None)
+            )
         return True
 
     # ---------------- worker ----------------
@@ -214,6 +226,11 @@ class DownloadManager:
                     task_id, total_pages=len(pages), done_pages=0, error=""
                 )
                 out_dir = self._eps_dir(book_id, eps_index)
+                # 同目录可能有 remove() 触发的后台删除未完成，等它结束再写入，
+                # 否则执行器线程边删、worker 边写，新页可能被事后删掉
+                deleting = self._dir_deleting.get(out_dir)
+                if deleting is not None:
+                    await asyncio.wrap_future(deleting)
                 out_dir.mkdir(parents=True, exist_ok=True)
 
                 pending: set[asyncio.Task] = set()
