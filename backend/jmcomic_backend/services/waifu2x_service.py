@@ -85,10 +85,16 @@ async def convert(
                     if not data:
                         raise Waifu2xError("超分结果为空（图片格式可能不受支持）")
                     return data, round(time.time() - t0, 3)
-            else:
-                if time.time() > deadline:
-                    raise Waifu2xError("超分处理超时，请重试")
-                time.sleep(0.01)
+                # 上一次超时任务的滞留结果：丢弃后继续等自己的。
+                # 注意这个分支也必须过 sleep + deadline，否则持锁忙等、超时失效
+                logger.warning(
+                    "waifu2x: discard stale result of task %s (waiting for %s)",
+                    done_id,
+                    task_id,
+                )
+            if time.time() > deadline:
+                raise Waifu2xError("超分处理超时，请重试")
+            time.sleep(0.01)
 
     # sr.load 是进程级共享队列，并发进入会互抢结果：全局串行 + 超时
     def _run_guarded() -> tuple[bytes, float]:
