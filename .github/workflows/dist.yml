@@ -18,13 +18,13 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            script: dist:win
+            eb_target: win
             label: windows
           - os: macos-latest
-            script: dist:mac
+            eb_target: mac
             label: macos-arm64
           - os: ubuntu-latest
-            script: dist:linux
+            eb_target: linux
             label: linux
     runs-on: ${{ matrix.os }}
     steps:
@@ -48,7 +48,26 @@ jobs:
       # postinstall 会创建 backend/.venv 并 pip install -e .
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm run ${{ matrix.script }}
+      # 后端单独打包 + CI 冒烟：直接运行冻结尾并探活 /api/health，
+      # 把"后端在目标平台起不来"的问题在构建期暴露，输出直接进 workflow 日志
+      - run: node scripts/build-backend.mjs
+      - run: node scripts/smoke-backend.mjs
+
+      - run: pnpm run build
+
+      - run: pnpm exec electron-builder --${{ matrix.eb_target }} --publish never
+
+      # 校验安装包产物里真的带上了 backend_dist（extraResources）
+      - name: Verify backend bundled
+        shell: bash
+        run: |
+          found=$(find dist/installers -type d -name backend_dist | head -1)
+          if [ -z "$found" ]; then
+            echo "::error::backend_dist not found in packaged output"
+            exit 1
+          fi
+          echo "backend_dist at: $found"
+          ls "$found/jmcomic_backend" | head -5
 
       - uses: actions/upload-artifact@v4
         with:

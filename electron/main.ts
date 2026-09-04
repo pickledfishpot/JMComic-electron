@@ -16,6 +16,7 @@ import {
   getDefaultDataDir,
   findFreePort,
   waitForBackend,
+  type LaunchedBackend,
 } from "./utils/backend-launcher";
 import {
   loadWindowState,
@@ -26,6 +27,7 @@ import {
 
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
+let backend: LaunchedBackend | null = null;
 let backendProcess: ChildProcess | null = null;
 let backendPort = 0;
 let tray: Tray | null = null;
@@ -181,13 +183,18 @@ async function createMainWindow(): Promise<BrowserWindow> {
 
 async function initializeBackend() {
   const dataDir = getDefaultDataDir();
-  // 开发模式下由 dev 脚本指定固定端口，保证与 vite 代理一致
-  const envPort = process.env.JMCOMIC_BACKEND_PORT;
-  backendPort = envPort ? Number(envPort) : await findFreePort();
+  // 开发模式下由 dev 脚本指定固定端口，保证与 vite 代理一致；
+  // 非法值（NaN/越界）回退到自动探测而不是静默拿到 NaN
+  const envPort = Number.parseInt(process.env.JMCOMIC_BACKEND_PORT ?? "", 10);
+  backendPort =
+    Number.isInteger(envPort) && envPort > 0 && envPort < 65536
+      ? envPort
+      : await findFreePort();
 
   sendBackendState("starting", `正在启动后端服务 (端口 ${backendPort})...`);
 
-  backendProcess = await startBackend({ port: backendPort, dataDir });
+  backend = await startBackend({ port: backendPort, dataDir });
+  backendProcess = backend.child;
   backendProcess.on("exit", (code) => {
     console.log(`[backend] exited with code ${code}`);
     sendBackendState("stopped", `后端服务已退出 (code ${code ?? "unknown"})`);
@@ -195,7 +202,7 @@ async function initializeBackend() {
   });
 
   sendBackendState("waiting", "等待后端服务就绪...");
-  await waitForBackend(backendPort);
+  await waitForBackend(backendPort, backend);
   sendBackendState("ready", "后端服务已就绪");
 }
 
