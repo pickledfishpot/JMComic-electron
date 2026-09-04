@@ -259,19 +259,23 @@ function scrollToCurrentPage() {
 
 /* ---------------- 预加载相邻页 ---------------- */
 
-watch([currentPage, pages], () => {
-  if (mode.value !== "flip" || pages.value.length === 0) return;
-  const candidates = [
-    currentPage.value + 1,
-    currentPage.value + 2,
-    currentPage.value - 1,
-  ];
-  for (const idx of candidates) {
-    const page = pages.value[idx];
-    if (page) {
-      const img = new Image();
-      img.src = assetUrl(page.url);
-    }
+/** 已发起过预加载的 url，避免滚动/翻页时重复创建 Image */
+const preloaded = new Set<string>();
+
+watch([currentPage, pages, mode], () => {
+  if (pages.value.length === 0) return;
+  // 翻页模式预取后 2 前 1；滚动模式前后各 3 页，避免快速滚动时白屏
+  const ahead = mode.value === "flip" ? 2 : 3;
+  const behind = mode.value === "flip" ? 1 : 3;
+  for (let offset = -behind; offset <= ahead; offset++) {
+    if (offset === 0) continue;
+    const page = pages.value[currentPage.value + offset];
+    if (!page) continue;
+    const url = assetUrl(page.url);
+    if (preloaded.has(url)) continue;
+    preloaded.add(url);
+    const img = new Image();
+    img.src = url;
   }
 });
 
